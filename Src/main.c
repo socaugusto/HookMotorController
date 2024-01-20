@@ -1,21 +1,21 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
-  * All rights reserved.</center></h2>
-  *
-  * This software component is licensed by ST under Ultimate Liberty license
-  * SLA0044, the "License"; You may not use this file except in compliance with
-  * the License. You may obtain a copy of the License at:
-  *                             www.st.com/SLA0044
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
+ * All rights reserved.</center></h2>
+ *
+ * This software component is licensed by ST under Ultimate Liberty license
+ * SLA0044, the "License"; You may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at:
+ *                             www.st.com/SLA0044
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -62,11 +62,10 @@ extern volatile bool TIM3_UpdateFlag_IsActive;
 extern uint16_t adc1_RawData[3];
 extern volatile bool ADC1_ConvCpltFlag_IsActive;
 
-hook_remote_cmd_t remote_cmd;                   // global remote command data structure variable
-hook_data_t hook_data;                          // global hook data structure variable
+hook_remote_cmd_t remote_cmd; // global remote command data structure variable
+hook_data_t hook_data;        // global hook data structure variable
 
-STM_Handle_t stmHandle;                         // state machine motor control handle variable
-
+STM_Handle_t stmHandle; // state machine motor control handle variable
 
 /* USER CODE END PV */
 
@@ -82,40 +81,39 @@ static void MX_TIM3_Init(void);
 static void MX_NVIC_Init(void);
 /* USER CODE BEGIN PFP */
 
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
-	if(hadc->Instance == ADC1){
-		//GPIOB->ODR ^= GPIO_PIN_8;
-		ADC1_ConvCpltFlag_IsActive = true;			
-	}
-}
-
-
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-	if(htim->Instance == TIM3){
-    //GPIOB->ODR ^= GPIO_PIN_8;
-	  TIM3_UpdateFlag_IsActive = true;
-	
-		tim3_TimerTick++;
-	}	
-}
-
-
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-	if(huart->Instance == USART1){
-	  HAL_UART_Receive_DMA(&huart1, remote_cmd.r_data, sizeof(remote_cmd.r_data));			
+  if (hadc->Instance == ADC1)
+  {
+    // GPIOB->ODR ^= GPIO_PIN_8;
+    ADC1_ConvCpltFlag_IsActive = true;
   }
 }
 
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  if (htim->Instance == TIM3)
+  {
+    // GPIOB->ODR ^= GPIO_PIN_8;
+    TIM3_UpdateFlag_IsActive = true;
+
+    tim3_TimerTick++;
+  }
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+  if (huart->Instance == USART1)
+  {
+    HAL_UART_Receive_DMA(&huart1, remote_cmd.r_data, sizeof(remote_cmd.r_data));
+  }
+}
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
   (void)(huart);
-	ClearHookBuffer(&hook_data);
+  ClearHookBuffer(&hook_data);
 }
-
 
 /* USER CODE END PFP */
 
@@ -125,9 +123,9 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 /* USER CODE END 0 */
 
 /**
-  * @brief  The application entry point.
-  * @retval int
-  */
+ * @brief  The application entry point.
+ * @retval int
+ */
 int main(void)
 {
   /* USER CODE BEGIN 1 */
@@ -163,32 +161,31 @@ int main(void)
   /* Initialize interrupts */
   MX_NVIC_Init();
   /* USER CODE BEGIN 2 */
-	
-	HOOK_DATA_Init(&hook_data);
-	
-	HAL_ADC_Start_DMA(&hadc, (uint32_t*)adc1_RawData, 3);
-	
-  HAL_TIM_Base_Start_IT(&htim3);	
-	 
-	HAL_UART_Receive_DMA(&huart1, remote_cmd.r_data, sizeof(remote_cmd.r_data));
-	 
-	/*PA6 ref. voltage output for testing current sense*/ 
-	//GPIOA->ODR ^= GPIO_PIN_6;
+
+  HOOK_DATA_Init(&hook_data);
+
+  HAL_ADC_Start_DMA(&hadc, (uint32_t *)adc1_RawData, 3);
+
+  HAL_TIM_Base_Start_IT(&htim3);
+
+  HAL_UART_Receive_DMA(&huart1, remote_cmd.r_data, sizeof(remote_cmd.r_data));
+
+  /*PA6 ref. voltage output for testing current sense*/
+  // GPIOA->ODR ^= GPIO_PIN_6;
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-	while (1)
+  while (1)
   {
-		//Hook Main Loop Handle
-		hook_remote_data_get(&remote_cmd);
-		
-		hook_motor_control_handle(&Motor_Device1, &remote_cmd, &stmHandle);
-		
-	    hook_monitoring_handle(&hook_data, &Motor_Device1);
-		
-		
+    // Hook Main Loop Handle
+    hook_remote_data_get(&remote_cmd);
+
+    hook_motor_control_handle(&Motor_Device1, &remote_cmd, &stmHandle);
+
+    hook_monitoring_handle(&hook_data, &Motor_Device1);
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -197,9 +194,9 @@ int main(void)
 }
 
 /**
-  * @brief System Clock Configuration
-  * @retval None
-  */
+ * @brief System Clock Configuration
+ * @retval None
+ */
 void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
@@ -207,9 +204,9 @@ void SystemClock_Config(void)
   RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
 
   /** Initializes the RCC Oscillators according to the specified parameters
-  * in the RCC_OscInitTypeDef structure.
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_HSI14;
+   * in the RCC_OscInitTypeDef structure.
+   */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI | RCC_OSCILLATORTYPE_HSI14;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSI14State = RCC_HSI14_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
@@ -223,9 +220,8 @@ void SystemClock_Config(void)
     Error_Handler();
   }
   /** Initializes the CPU, AHB and APB buses clocks
-  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1;
+   */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
@@ -243,9 +239,9 @@ void SystemClock_Config(void)
 }
 
 /**
-  * @brief NVIC Configuration.
-  * @retval None
-  */
+ * @brief NVIC Configuration.
+ * @retval None
+ */
 static void MX_NVIC_Init(void)
 {
   /* ADC1_IRQn interrupt configuration */
@@ -263,10 +259,10 @@ static void MX_NVIC_Init(void)
 }
 
 /**
-  * @brief ADC Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief ADC Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_ADC_Init(void)
 {
 
@@ -280,7 +276,7 @@ static void MX_ADC_Init(void)
 
   /* USER CODE END ADC_Init 1 */
   /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
-  */
+   */
   hadc.Instance = ADC1;
   hadc.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
   hadc.Init.Resolution = ADC_RESOLUTION_12B;
@@ -300,7 +296,7 @@ static void MX_ADC_Init(void)
     Error_Handler();
   }
   /** Configure for the selected ADC regular channel to be converted.
-  */
+   */
   sConfig.Channel = ADC_CHANNEL_4;
   sConfig.Rank = ADC_RANK_CHANNEL_NUMBER;
   sConfig.SamplingTime = ADC_SAMPLETIME_28CYCLES_5;
@@ -309,14 +305,14 @@ static void MX_ADC_Init(void)
     Error_Handler();
   }
   /** Configure for the selected ADC regular channel to be converted.
-  */
+   */
   sConfig.Channel = ADC_CHANNEL_5;
   if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
   {
     Error_Handler();
   }
   /** Configure for the selected ADC regular channel to be converted.
-  */
+   */
   sConfig.Channel = ADC_CHANNEL_VREFINT;
   if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
   {
@@ -325,14 +321,13 @@ static void MX_ADC_Init(void)
   /* USER CODE BEGIN ADC_Init 2 */
 
   /* USER CODE END ADC_Init 2 */
-
 }
 
 /**
-  * @brief TIM1 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief TIM1 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_TIM1_Init(void)
 {
 
@@ -350,7 +345,7 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = ((TIM_CLOCK_DIVIDER) - 1);
+  htim1.Init.Prescaler = ((TIM_CLOCK_DIVIDER)-1);
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim1.Init.Period = PWM_PERIOD_CYCLES;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -419,14 +414,13 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 2 */
   HAL_TIM_MspPostInit(&htim1);
-
 }
 
 /**
-  * @brief TIM2 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief TIM2 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_TIM2_Init(void)
 {
 
@@ -473,14 +467,13 @@ static void MX_TIM2_Init(void)
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */
-
 }
 
 /**
-  * @brief TIM3 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief TIM3 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_TIM3_Init(void)
 {
 
@@ -518,14 +511,13 @@ static void MX_TIM3_Init(void)
   /* USER CODE BEGIN TIM3_Init 2 */
 
   /* USER CODE END TIM3_Init 2 */
-
 }
 
 /**
-  * @brief USART1 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief USART1 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_USART1_UART_Init(void)
 {
 
@@ -545,7 +537,7 @@ static void MX_USART1_UART_Init(void)
   huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart1.Init.OverSampling = UART_OVERSAMPLING_16;
   huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_RXOVERRUNDISABLE_INIT|UART_ADVFEATURE_DMADISABLEONERROR_INIT;
+  huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_RXOVERRUNDISABLE_INIT | UART_ADVFEATURE_DMADISABLEONERROR_INIT;
   huart1.AdvancedInit.OverrunDisable = UART_ADVFEATURE_OVERRUN_DISABLE;
   huart1.AdvancedInit.DMADisableonRxError = UART_ADVFEATURE_DMA_DISABLEONRXERROR;
   if (HAL_UART_Init(&huart1) != HAL_OK)
@@ -553,15 +545,13 @@ static void MX_USART1_UART_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN USART1_Init 2 */
-	
 
   /* USER CODE END USART1_Init 2 */
-
 }
 
 /**
-  * Enable DMA controller clock
-  */
+ * Enable DMA controller clock
+ */
 static void MX_DMA_Init(void)
 {
 
@@ -575,14 +565,13 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel2_3_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel2_3_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel2_3_IRQn);
-
 }
 
 /**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief GPIO Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
@@ -596,20 +585,20 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(OC_SEL_GPIO_Port, OC_SEL_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOF, OCTHSTBY2_Pin|OCTH_STBY1_Pin, GPIO_PIN_SET);
-//	HAL_GPIO_WritePin(GPIOF, OCTH_STBY1_Pin, GPIO_PIN_RESET);
-//	HAL_GPIO_WritePin(GPIOF, OCTHSTBY2_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOF, OCTHSTBY2_Pin | OCTH_STBY1_Pin, GPIO_PIN_SET);
+  //	HAL_GPIO_WritePin(GPIOF, OCTH_STBY1_Pin, GPIO_PIN_RESET);
+  //	HAL_GPIO_WritePin(GPIOF, OCTHSTBY2_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-//  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
+  //  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : Start_Stop_Pin */
   GPIO_InitStruct.Pin = Start_Stop_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(Start_Stop_GPIO_Port, &GPIO_InitStruct);
-	
-	/*Configure GPIO pin : Start_Stop1_Pin */
+
+  /*Configure GPIO pin : Start_Stop1_Pin */
   GPIO_InitStruct.Pin = Start_Stop1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
@@ -623,19 +612,18 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(OC_SEL_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : OCTHSTBY2_Pin OCTH_STBY1_Pin */
-  GPIO_InitStruct.Pin = OCTHSTBY2_Pin|OCTH_STBY1_Pin;
+  GPIO_InitStruct.Pin = OCTHSTBY2_Pin | OCTH_STBY1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PA6 */
-//  GPIO_InitStruct.Pin = GPIO_PIN_6;
-//  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-//  GPIO_InitStruct.Pull = GPIO_NOPULL;
-//  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-//  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
+  //  GPIO_InitStruct.Pin = GPIO_PIN_6;
+  //  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  //  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  //  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  //  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 }
 
 /* USER CODE BEGIN 4 */
@@ -643,9 +631,9 @@ static void MX_GPIO_Init(void)
 /* USER CODE END 4 */
 
 /**
-  * @brief  This function is executed in case of error occurrence.
-  * @retval None
-  */
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
@@ -657,14 +645,14 @@ void Error_Handler(void)
   /* USER CODE END Error_Handler_Debug */
 }
 
-#ifdef  USE_FULL_ASSERT
+#ifdef USE_FULL_ASSERT
 /**
-  * @brief  Reports the name of the source file and the source line number
-  *         where the assert_param error has occurred.
-  * @param  file: pointer to the source file name
-  * @param  line: assert_param error line source number
-  * @retval None
-  */
+ * @brief  Reports the name of the source file and the source line number
+ *         where the assert_param error has occurred.
+ * @param  file: pointer to the source file name
+ * @param  line: assert_param error line source number
+ * @retval None
+ */
 void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
