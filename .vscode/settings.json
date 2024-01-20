@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "mc_stm_types.h": "c",
+        "parameters_conversion.h": "c",
+        "mcp_config.h": "c",
+        "6step_setfunctions_3pwm_6pwm.h": "c"
+    }
+}
