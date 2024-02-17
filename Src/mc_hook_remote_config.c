@@ -658,6 +658,7 @@ void hook_motor_control_handle(MC_Handle_t *motor_device, hook_remote_cmd_t *rcm
  *@param: hd: pointer for hook data structure to store data
  *@retval: None.
  */
+static uint8_t OvercurrentCounter = 0;
 void ADC_ProcessHandle(hook_data_t *hd)
 {
 	float Vref = 0;
@@ -677,6 +678,17 @@ void ADC_ProcessHandle(hook_data_t *hd)
 
 		CurrentSense = (float)((Vref * CurrentSense_adcVal) / 4095); // Current conversion, Vadc by MCU.
 		CurrentSense *= CURR_SENSE_SCALE_FACTOR;					 // Current calc., Vshunt=Ishunt*Rshunt, Vshunt*GAIN=Vadc, Is=Vadc/(Rs*GAIN).
+
+		if (CurrentSense > 5 && ++OvercurrentCounter > 3)
+		{
+			Motor_Device1.status = MC_OVERCURRENT;
+      		MC_Core_Error(&Motor_Device1);
+			OvercurrentCounter = 0;
+		}
+		else if (CurrentSense < 1)
+		{
+			OvercurrentCounter = 0;
+		}
 
 		hd->load_current_m = CurrentSense;
 
