@@ -17,6 +17,7 @@
 /*Includes---------------------------------------------------------------------------------------------------------------------------*/
 #include "mc_hook_remote_config.h"
 #include "stdio.h"
+#include <memory.h>
 
 /*Definitions------------------------------------------------------------------------------------------------------------------------*/
 
@@ -93,17 +94,11 @@ void HOOK_DATA_Init(hook_data_t *hd)
  */
 void hook_remote_data_get(hook_remote_cmd_t *rcmd)
 {
-	if (!(rcmd->r_data[0] == HDR && rcmd->r_data[1] == R_HDR))
+	// TODO(Silvio): Make a buffer which removes data when receives it, must be
+	// able to handle garbage data
+	if (rcmd->r_data[0] == 0xFE)
 	{
-		return;
-	}
-
-	if (rcmd->r_data[5] == CR && rcmd->r_data[6] == LF)
-	{
-		// Remote buttons cmd formating
-		rcmd->open_pos = rcmd->r_data[2] - 48;	// Convert data to int
-		rcmd->mid_pos = rcmd->r_data[3] - 48;	// Convert data to int
-		rcmd->close_pos = rcmd->r_data[4] - 48; // Convert data to int
+		memcpy(&rcmd->RemoteCommand_t, &rcmd->r_data[1], sizeof(rcmd->RemoteCommand_t));
 	}
 }
 
@@ -122,6 +117,7 @@ void ClearRemoteBuffer(hook_remote_cmd_t *rcmd)
 	rcmd->open_pos = 0xff;
 	rcmd->mid_pos = 0xff;
 	rcmd->close_pos = 0xff;
+	rcmd->RemoteCommand_t.operation = 0xff;
 }
 
 /**
@@ -364,7 +360,7 @@ void hook_motor_control_handle(MC_Handle_t *motor_device, hook_remote_cmd_t *rcm
 	static uint8_t lastHallStatus = 0xff;
 
 	// Check remote cmd
-	if ((rcmd->open_pos == 2 && rcmd->mid_pos == 2 && rcmd->close_pos == 0) && (hook_position != HOOK_MECH_HOME_POS_VAL))
+	if (rcmd->RemoteCommand_t.operation == 1 && rcmd->RemoteCommand_t.uParameter1 == 0)
 	{
 		hookProcessStat = HOOK_PROCESS_HOMING;
 	}
@@ -682,7 +678,7 @@ void ADC_ProcessHandle(hook_data_t *hd)
 		if (CurrentSense > 5 && ++OvercurrentCounter > 3)
 		{
 			Motor_Device1.status = MC_OVERCURRENT;
-      		MC_Core_Error(&Motor_Device1);
+			MC_Core_Error(&Motor_Device1);
 			OvercurrentCounter = 0;
 		}
 		else if (CurrentSense < 1)

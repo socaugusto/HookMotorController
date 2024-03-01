@@ -35,7 +35,7 @@ extern "C"
 // UART
 #define HOOK_MONITOR_REFRESH_TIMESTAMP 500 // Update hook monitoring values per 500ms.
 
-#define REMOTE_BUFF_SIZE 7
+#define REMOTE_BUFF_SIZE 8
 #define HOOK_BUFF_SIZE 12
 
 // Hook Position
@@ -84,7 +84,8 @@ extern "C"
 
 	} motor_direction_stat_t;
 
-	/**@brief structure for remote command data. */
+/**@brief structure for remote command data. */
+#pragma pack(1)
 	typedef struct _hook_remote_cmd_t
 	{
 
@@ -94,6 +95,27 @@ extern "C"
 		uint8_t mid_pos;
 		uint8_t close_pos;
 		uint8_t cr, lf;
+
+		struct
+		{
+			uint8_t operation;
+			union
+			{
+				uint16_t uParameter1;
+				int16_t iParameter1;
+			};
+			union
+			{
+				uint16_t uParameter2;
+				int16_t iParameter2;
+			};
+			union
+			{
+				uint16_t uParameter3;
+				int16_t iParameter3;
+			};
+
+		} RemoteCommand_t;
 
 	} hook_remote_cmd_t;
 
