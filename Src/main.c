@@ -62,8 +62,9 @@ extern volatile bool TIM3_UpdateFlag_IsActive;
 extern uint16_t adc1_RawData[3];
 extern volatile bool ADC1_ConvCpltFlag_IsActive;
 
-hook_remote_cmd_t remote_cmd; // global remote command data structure variable
-hook_data_t hook_data;        // global hook data structure variable
+hook_remote_cmd_t remote_cmd[8]; // global remote command data structure variable
+static int8_t idxReceive = 0;
+hook_data_t hook_data; // global hook data structure variable
 
 STM_Handle_t stmHandle; // state machine motor control handle variable
 
@@ -74,7 +75,6 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_ADC_Init(void);
-static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_TIM3_Init(void);
@@ -105,14 +105,14 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
   if (huart->Instance == USART1)
   {
-    HAL_UART_Receive_DMA(&huart1, remote_cmd.r_data, sizeof(remote_cmd.r_data));
+    idxReceive = (idxReceive + 1) % (sizeof(remote_cmd) / sizeof(hook_remote_cmd_t));
+    HAL_UART_Receive_DMA(&huart1, remote_cmd[idxReceive].r_data, sizeof(remote_cmd[idxReceive].r_data));
   }
 }
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
   (void)(huart);
-  ClearHookBuffer(&hook_data);
 }
 
 /* USER CODE END PFP */
@@ -152,7 +152,7 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_ADC_Init();
-  MX_TIM1_Init();
+  MX_TIM1_Init(true);
   MX_TIM2_Init();
   MX_USART1_UART_Init();
   MX_MotorControl_Init();
@@ -168,7 +168,9 @@ int main(void)
 
   HAL_TIM_Base_Start_IT(&htim3);
 
-  HAL_UART_Receive_DMA(&huart1, remote_cmd.r_data, sizeof(remote_cmd.r_data));
+  HAL_UART_Receive_DMA(&huart1, remote_cmd[idxReceive].r_data, sizeof(remote_cmd[idxReceive].r_data));
+
+  int8_t idxProcess = 0;
 
   /*PA6 ref. voltage output for testing current sense*/
   // GPIOA->ODR ^= GPIO_PIN_6;
@@ -180,10 +182,25 @@ int main(void)
   while (1)
   {
     // Hook Main Loop Handle
-    hook_remote_data_get(&remote_cmd);
+    int8_t count = 0;
+    if (idxProcess == idxReceive)
+    {
+      count = 0;
+    }
+    else if (idxProcess < idxReceive)
+    {
+      count = idxReceive - idxProcess;
+    }
+    else if (idxProcess > idxReceive)
+    {
+      count = ((sizeof(remote_cmd) / sizeof(hook_remote_cmd_t)) + idxReceive) - idxProcess;
+    }
 
-    hook_motor_control_handle(&Motor_Device1, &remote_cmd, &stmHandle);
-
+    if (count)
+    {
+      hook_command_run(&remote_cmd[idxProcess], &Motor_Device1);
+      idxProcess = (idxProcess + 1) % (sizeof(remote_cmd) / sizeof(hook_remote_cmd_t));
+    }
     hook_monitoring_handle(&hook_data, &Motor_Device1);
 
     /* USER CODE END WHILE */
@@ -328,7 +345,7 @@ static void MX_ADC_Init(void)
  * @param None
  * @retval None
  */
-static void MX_TIM1_Init(void)
+void MX_TIM1_Init(bool enableBreak)
 {
 
   /* USER CODE BEGIN TIM1_Init 0 */
@@ -342,6 +359,8 @@ static void MX_TIM1_Init(void)
   TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
 
   /* USER CODE BEGIN TIM1_Init 1 */
+  // HAL_TIM_Base_DeInit(&htim1);
+  // HAL_TIM_PWM_DeInit(&htim1);
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
@@ -403,7 +422,7 @@ static void MX_TIM1_Init(void)
   sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
   sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
   sBreakDeadTimeConfig.DeadTime = 0;
-  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakState = enableBreak ? TIM_BREAK_ENABLE : TIM_BREAK_DISABLE;
   sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
   sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_ENABLE;
   if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig) != HAL_OK)
@@ -540,6 +559,7 @@ static void MX_USART1_UART_Init(void)
   huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_RXOVERRUNDISABLE_INIT | UART_ADVFEATURE_DMADISABLEONERROR_INIT;
   huart1.AdvancedInit.OverrunDisable = UART_ADVFEATURE_OVERRUN_DISABLE;
   huart1.AdvancedInit.DMADisableonRxError = UART_ADVFEATURE_DMA_DISABLEONRXERROR;
+
   if (HAL_UART_Init(&huart1) != HAL_OK)
   {
     Error_Handler();

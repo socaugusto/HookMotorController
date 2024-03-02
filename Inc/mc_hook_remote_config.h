@@ -53,28 +53,6 @@ extern "C"
 #define CR '\r'
 #define LF '\n'
 
-	/**@brief enum for remote command status. */
-	typedef enum _hook_remote_cmd_stat_t
-	{
-
-		DEFAULT_CMD = 0x00,
-		OPEN_POS_CMD = 0x01,
-		MID_POS_CMD = 0x02,
-		CLOSE_POS_CMD = 0x03
-
-	} hook_remote_cmd_stat_t;
-
-	/**@brief enum for hook position status. */
-	typedef enum _hook_position_stat_t
-	{
-
-		UNKNOWN_POS = 0x00,
-		OPEN_POS = 0x01,
-		MID_POS = 0x02,
-		CLOSE_POS = 0x03
-
-	} hook_position_stat_t;
-
 	/**@brief enum for motor direction status. */
 	typedef enum _motor_direction_stat_t
 	{
@@ -83,6 +61,16 @@ extern "C"
 		CCW = 0x01
 
 	} motor_direction_stat_t;
+
+#pragma pack(1)
+	typedef struct RemoteCommand_t_
+	{
+		uint8_t operation;
+		int16_t Parameter1;
+		int16_t Parameter2;
+		int16_t Parameter3;
+
+	} RemoteCommand_t;
 
 /**@brief structure for remote command data. */
 #pragma pack(1)
@@ -95,28 +83,6 @@ extern "C"
 		uint8_t mid_pos;
 		uint8_t close_pos;
 		uint8_t cr, lf;
-
-		struct
-		{
-			uint8_t operation;
-			union
-			{
-				uint16_t uParameter1;
-				int16_t iParameter1;
-			};
-			union
-			{
-				uint16_t uParameter2;
-				int16_t iParameter2;
-			};
-			union
-			{
-				uint16_t uParameter3;
-				int16_t iParameter3;
-			};
-
-		} RemoteCommand_t;
-
 	} hook_remote_cmd_t;
 
 	/**@brief structure for hook data. */
@@ -135,18 +101,6 @@ extern "C"
 
 	} hook_data_t;
 
-	/**@brief enum for hook process status. */
-	typedef enum _hook_process_stat_t
-	{
-
-		HOOK_PROCESS_NONE = 0x00,
-		HOOK_PROCESS_IDLE = 0x01,
-		HOOK_PROCESS_HOMING = 0x02,
-		HOOK_PROCESS_TESTING = 0x03,
-		HOOK_PROCESS_SYSRESET = 0x04
-
-	} hook_process_stat_t;
-
 	/*-----------------------------------------------------------------------------------------------------------------------------------*/
 
 	/*Variables--------------------------------------------------------------------------------------------------------------------------*/
@@ -158,7 +112,7 @@ extern "C"
 	void HOOK_DATA_Init(hook_data_t *hd);
 
 	/**@brief Function prototype for reading remote data. */
-	void hook_remote_data_get(hook_remote_cmd_t *rcmd);
+	void hook_command_run(hook_remote_cmd_t *rcmd, MC_Handle_t *motor_device);
 
 	/**@brief Function prototype for motor device start. */
 	void MotorStart(MC_Handle_t *motor_device);
@@ -174,12 +128,6 @@ extern "C"
 
 	/**@brief Function prototype for setting motor speed. */
 	void MotorSetSpeed(MC_Handle_t *motor_device, uint32_t motor_speed);
-
-	/**@brief: Function prototype for the checking and the tackling of hook position. */
-	void HOOK_PositionHandle(MC_Handle_t *motor_dev, hook_remote_cmd_t *rcmd, uint8_t command, int32_t hook_pos_count, STM_Handle_t *stmh);
-
-	/**@brief Function prototype for handling hook motor control and motor positioning by hall step changes against remote cmd. */
-	void hook_motor_control_handle(MC_Handle_t *motor_device, hook_remote_cmd_t *rcmd, STM_Handle_t *stmh);
 
 	/**@brief: Function prototype for ADC process handling as to the obtainning and the calculation of Vref Int, VBus and Current Sense values. */
 	void ADC_ProcessHandle(hook_data_t *hd);

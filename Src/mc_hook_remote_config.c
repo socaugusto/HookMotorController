@@ -16,10 +16,44 @@
 
 /*Includes---------------------------------------------------------------------------------------------------------------------------*/
 #include "mc_hook_remote_config.h"
+#include "main.h"
 #include "stdio.h"
 #include <memory.h>
 
 /*Definitions------------------------------------------------------------------------------------------------------------------------*/
+typedef enum Errors_e_
+{
+	ERROR_NONE,
+	ERROR_INVALID_PARAMETER,
+	ERROR_FAILED_TO_START_MOTOR,
+
+} Errors_e;
+
+typedef enum Command_e_
+{
+	SPIN_COMMAND_NONE,
+	SPIN_COMMAND_MOVE,
+	SPIN_COMMAND_STOP,
+	SPIN_COMMAND_EACK,
+	SPIN_COMMAND_REBOOT,
+	SPIN_COMMAND_SET_PARAMETER,
+	SPIN_COMMAND_READ_PARAMETER,
+} Command_e;
+
+typedef enum Parameters_e_
+{
+	PARAMETER_NONE,
+	PARAMETER_KP,
+	PARAMETER_KI,
+	PARAMETER_KD,
+	PARAMETER_PID_SCALING_SHIFT,
+	PARAMETER_PID_OUTPUT_MIN,
+	PARAMETER_PID_OUTPUT_MAX,
+	PARAMETER_CURRENT_LIMIT_VALUE,
+	PARAMETER_CURRENT_LIMIT_TYPE,
+	PARAMETER_CURRENT_LIMIT_ADC_FILTER_VALUE,
+
+} Parameters_e;
 
 /*-----------------------------------------------------------------------------------------------------------------------------------*/
 
@@ -42,25 +76,36 @@ static volatile bool HOOK_UNKNOWN_POS_FLAG = false;
 static volatile bool HOOK_HOMING_FLAG = false;
 static volatile bool HOOK_TESTING_FLAG = false;
 
-static uint8_t cmd;
-
 static volatile bool HOOK_OPEN_POS_CMD_FLAG = false;
 static volatile bool HOOK_MID_POS_CMD_FLAG = false;
 static volatile bool HOOK_CLOSE_POS_CMD_FLAG = false;
 
-static uint32_t OpenCMDindex = 0;
-static uint32_t MidCMDindex = 0;
-static uint32_t CloseCMDindex = 0;
 static volatile bool OpenCMDindex_Flag = false;
 static volatile bool MidCMDindex_Flag = false;
 static volatile bool CloseCMDindex_Flag = false;
 
-static uint8_t lastHookStatus;
-static int32_t hook_position = 0xff;
-
-static hook_process_stat_t hookProcessStat = HOOK_PROCESS_NONE;
+// static uint8_t cmd;
+// static uint32_t OpenCMDindex = 0;
+// static uint32_t MidCMDindex = 0;
+// static uint32_t CloseCMDindex = 0;
+// static uint8_t lastHookStatus;
+// static hook_process_stat_t hookProcessStat = HOOK_PROCESS_NONE;
 
 static volatile bool HOOK_HOMING_MOTOR_STOP_FLAG = false;
+
+static int32_t hookPosition = UINT16_MAX;
+static uint16_t hookTarget = 0;
+static Errors_e errorNo = ERROR_NONE;
+
+extern uint16_t pidKp;
+extern uint16_t pidKi;
+extern uint16_t pidKd;
+extern uint16_t pidScaling;
+extern uint16_t pidOutMin;
+extern uint16_t pidOutMax;
+static uint16_t currentLimit = 5;
+static uint16_t currentLimitMaxCount = 3;
+static uint16_t OvercurrentCounter = 0;
 
 /*-----------------------------------------------------------------------------------------------------------------------------------*/
 
@@ -86,23 +131,6 @@ void HOOK_DATA_Init(hook_data_t *hd)
 }
 
 /**
- *@brief: Function for reading remote data.
- *@param: rcmd: pointer for remote cmd structure to store data
- *@retval: None
- *Remote Data Protocol: |$R|OpenPosBtnCmd|MidPosBtnCmd|ClosePosBtnCmd|<CR>|<LF>|
- *d0:$, d1:R, d2:open pos cmd, d3:mid pos cmd, d4:<CR>, 5:<LF>
- */
-void hook_remote_data_get(hook_remote_cmd_t *rcmd)
-{
-	// TODO(Silvio): Make a buffer which removes data when receives it, must be
-	// able to handle garbage data
-	if (rcmd->r_data[0] == 0xFE)
-	{
-		memcpy(&rcmd->RemoteCommand_t, &rcmd->r_data[1], sizeof(rcmd->RemoteCommand_t));
-	}
-}
-
-/**
  *@brief: Function for motor device start.
  *@param: motor_device: pointer to MC_Handle structure
  *@retval: None
@@ -114,6 +142,10 @@ void MotorStart(MC_Handle_t *motor_device)
 	if (status == MC_STOP)
 	{
 		MC_Core_Start(motor_device);
+	}
+	else
+	{
+		errorNo = ERROR_FAILED_TO_START_MOTOR;
 	}
 }
 
@@ -181,416 +213,118 @@ void MotorSetSpeed(MC_Handle_t *motor_device, uint32_t motor_speed)
 }
 
 /**
- *@brief: Function for the checking and the tackling of hook position.
+ *@brief: To be called when the hall status change.
  *@param: motor_device: pointer to MC_Handle structure
- *        command: variable for getting remote command case
- *        hook_pos_count: variable for getting hook position value
  *@retval: None
  */
-void HOOK_PositionHandle(MC_Handle_t *motor_device, hook_remote_cmd_t *rcmd, uint8_t command, int32_t hook_pos_count, STM_Handle_t *stmh)
+void MotorUpdatePosition(MC_Handle_t *motor_device)
 {
-	(void)stmh;
-	(void)rcmd;
-	// Perform the cmd cases
-	switch (command)
+	if (motor_device->direction)
 	{
-	case OPEN_POS_CMD:
-	{
-		if (HOOK_OPEN_POS_CMD_FLAG)
-		{
-			if (lastHookStatus == MID_POS || lastHookStatus == CLOSE_POS)
-			{
-
-				MotorSetDirection(motor_device, CCW);
-				MotorStart(motor_device);
-
-				// Handle the position
-				if (hook_pos_count >= (int32_t)HOOK_MECH_FULL_POS_VAL)
-				{
-					MotorStop(motor_device);
-					lastHookStatus = OPEN_POS;
-
-					hook_position = HOOK_MECH_FULL_POS_VAL;
-
-					// Position feedback flags
-					HOOK_OPEN_POS_LED_FLAG = true;
-					HOOK_MID_POS_LED_FLAG = false;
-					HOOK_CLOSE_POS_LED_FLAG = false;
-
-					// Clear hook remote command flag
-					HOOK_OPEN_POS_CMD_FLAG = false;
-
-					cmd = DEFAULT_CMD;
-
-					OpenCMDindex = 0;
-					MidCMDindex = 0;
-					CloseCMDindex = 0;
-				}
-			}
-		}
-	}
-	break;
-
-	case MID_POS_CMD:
-	{
-		if (HOOK_MID_POS_CMD_FLAG)
-		{
-			if (lastHookStatus == CLOSE_POS || lastHookStatus == OPEN_POS)
-			{
-
-				// Check last hook position for MID_POS and determine the direction to be set.
-				if (lastHookStatus == CLOSE_POS)
-				{
-					MotorSetDirection(motor_device, CCW);
-				}
-				else if (lastHookStatus == OPEN_POS)
-				{
-					MotorSetDirection(motor_device, CW);
-				}
-				else
-				{
-					// Do nothing
-				}
-
-				MotorStart(motor_device);
-
-				// Handle the position
-				if ((lastHookStatus == CLOSE_POS && (hook_pos_count >= (int32_t)HOOK_MECH_HALF_POS_VAL)) ||
-					(lastHookStatus == OPEN_POS && (hook_pos_count <= (int32_t)HOOK_MECH_HALF_POS_VAL)))
-				{
-					MotorStop(motor_device);
-					lastHookStatus = MID_POS;
-
-					// Position feedback flags
-					HOOK_OPEN_POS_LED_FLAG = false;
-					HOOK_MID_POS_LED_FLAG = true;
-					HOOK_CLOSE_POS_LED_FLAG = false;
-
-					// Clear hook remote command flag
-					HOOK_MID_POS_CMD_FLAG = false;
-
-					cmd = DEFAULT_CMD;
-
-					OpenCMDindex = 0;
-					MidCMDindex = 0;
-					CloseCMDindex = 0;
-				}
-			}
-			else
-				MotorStop(motor_device);
-		}
-	}
-	break;
-
-	case CLOSE_POS_CMD:
-	{
-		if (HOOK_CLOSE_POS_CMD_FLAG)
-		{
-			if (lastHookStatus == MID_POS || lastHookStatus == OPEN_POS)
-			{
-
-				hookProcessStat = HOOK_PROCESS_HOMING;
-			}
-		}
-	}
-	break;
-
-	default:
-		break;
-	}
-}
-
-/**
- *@brief: Function for handling hook motor control and motor positioning by hall step changes against remote cmd.
- *@param: motor_device: pointer to MC_Handle structure
- *        rcmd: pointer for remote cmd structure to store data
- *        stmh: pointer for state machine motor control handle
- *@retval: None
- *Remote Data Protocol: |$R|OpenPosBtnCmd|MidPosBtnCmd|ClosePosBtnCmd|<CR>|<LF>|
- *d0:$, d1:R, d2:open pos cmd, d3:mid pos cmd, d4:close pos cmd, d5:<CR>, d6:<LF>
- */
-void hook_motor_control_handle(MC_Handle_t *motor_device, hook_remote_cmd_t *rcmd, STM_Handle_t *stmh)
-{
-	static uint8_t lastHallStatus = 0xff;
-
-	// Check remote cmd
-	if (rcmd->RemoteCommand_t.operation == 1 && rcmd->RemoteCommand_t.uParameter1 == 0)
-	{
-		hookProcessStat = HOOK_PROCESS_HOMING;
-	}
-	else if (rcmd->open_pos == 3 && rcmd->mid_pos == 0 && rcmd->close_pos == 3)
-	{
-		hookProcessStat = HOOK_PROCESS_SYSRESET;
-	}
-	else if ((rcmd->open_pos == 0 && rcmd->mid_pos == 4 && rcmd->close_pos == 4) && ((lastHookStatus == CLOSE_POS) && HOOK_CLOSE_POS_LED_FLAG))
-	{
-		hookProcessStat = HOOK_PROCESS_TESTING;
+		hookPosition++;
 	}
 	else
 	{
-		// Do nothing
+		hookPosition--;
 	}
+}
 
-	if ((rcmd->open_pos == 1 || rcmd->mid_pos == 1 || rcmd->close_pos == 1) && HOOK_HOMING_FLAG)
+static motor_direction_stat_t MotorGetDirection(int16_t speed)
+{
+	return ((speed > 0) ? CW : CCW);
+}
+
+static void MotorSetTargetPosition(uint16_t target)
+{
+	hookTarget = target;
+}
+
+void hook_command_run(hook_remote_cmd_t *rcmd, MC_Handle_t *motor_device)
+{
+	if (rcmd->r_data[0] == 0xFE)
 	{
-		HOOK_HOMING_MOTOR_STOP_FLAG = true;
-	}
+		RemoteCommand_t *cmd = (RemoteCommand_t *)&rcmd->r_data[1];
 
-	// Perform processes
-	switch (hookProcessStat)
-	{
-
-	case HOOK_PROCESS_NONE:
-	{
-		lastHookStatus = UNKNOWN_POS;
-		HOOK_UNKNOWN_POS_FLAG = true;
-		HOOK_HOMING_FLAG = false;
-	}
-	break;
-
-	case HOOK_PROCESS_HOMING:
-	{
-		HOOK_UNKNOWN_POS_FLAG = false;
-		HOOK_HOMING_FLAG = true;
-
-		MotorSetSpeed(motor_device, HOOK_HOMING_SPEED_VAL);
-
-		MotorSetDirection(motor_device, CW);
-		MotorStart(motor_device);
-
-		// Get motor fault state upon self motor stop due to fault condition
-		uint32_t MotorFaultState = MC_Core_GetFaultState(motor_device);
-		if ((motor_device->direction == CW) && (MotorFaultState == 128 || MotorFaultState == MC_OVERCURRENT))
+		switch (cmd->operation)
 		{
+		case SPIN_COMMAND_MOVE:
+			MotorSetDirection(motor_device, MotorGetDirection(cmd->Parameter2));
+			MotorSetSpeed(motor_device, cmd->Parameter2);
+			MotorSetTargetPosition(cmd->Parameter1);
+			MotorStart(motor_device);
 
-			// Clear faults
-			// MC_Core_Init(motor_device);
-			MC_Core_Stop(motor_device);
-			STM_Init(stmh);
-			STM_FaultAcknowledged(stmh);
-
-			// Set home position to close pos
-			lastHookStatus = CLOSE_POS;
-			HOOK_OPEN_POS_LED_FLAG = false;
-			HOOK_MID_POS_LED_FLAG = false;
-			HOOK_CLOSE_POS_LED_FLAG = true;
-
-			hook_position = HOOK_MECH_HOME_POS_VAL;
-
-			// Clear hook remote command flag
-			HOOK_OPEN_POS_CMD_FLAG = false;
-			HOOK_MID_POS_CMD_FLAG = false;
-			HOOK_CLOSE_POS_CMD_FLAG = false;
-
-			cmd = DEFAULT_CMD;
-			OpenCMDindex = 0;
-			MidCMDindex = 0;
-			CloseCMDindex = 0;
-
-			// Set the process to idle mode.
-			hookProcessStat = HOOK_PROCESS_IDLE;
-
-			HOOK_HOMING_FLAG = false;
-		}
-
-		// Stop the motor in homing mode if needed.
-		if (HOOK_HOMING_MOTOR_STOP_FLAG)
-		{
+			break;
+		case SPIN_COMMAND_STOP:
 			MotorStop(motor_device);
 
-			HOOK_HOMING_FLAG = false;
-			HOOK_HOMING_MOTOR_STOP_FLAG = false;
+			break;
+		case SPIN_COMMAND_EACK:
+			errorNo = ERROR_NONE;
+			MC_Core_Reset(motor_device);
+			motor_device->status = MC_STOP;
 
-			HOOK_OPEN_POS_CMD_FLAG = false;
-			HOOK_MID_POS_CMD_FLAG = false;
-			HOOK_CLOSE_POS_CMD_FLAG = false;
+			break;
+		case SPIN_COMMAND_REBOOT:
+			HAL_NVIC_SystemReset();
 
-			HOOK_OPEN_POS_LED_FLAG = false;
-			HOOK_MID_POS_LED_FLAG = false;
-			HOOK_CLOSE_POS_LED_FLAG = false;
-
-			OpenCMDindex = 0;
-			MidCMDindex = 0;
-			CloseCMDindex = 0;
-			hookProcessStat = HOOK_PROCESS_NONE;
-		}
-	}
-	break;
-
-	case HOOK_PROCESS_SYSRESET:
-	{
-		HAL_NVIC_SystemReset(); // Reset system if needed.
-	}
-	break;
-
-	case HOOK_PROCESS_TESTING:
-	{
-		HOOK_TESTING_FLAG = true;
-		hookProcessStat = HOOK_PROCESS_IDLE;
-	}
-	break;
-
-	case HOOK_PROCESS_IDLE:
-	{
-		// Check remote cmd in idle mode
-		if (rcmd->open_pos == 1 && rcmd->mid_pos == 0 && rcmd->close_pos == 0)
-		{
-			OpenCMDindex_Flag = true;
-		}
-		else if (rcmd->mid_pos == 1 && rcmd->open_pos == 0 && rcmd->close_pos == 0)
-		{
-			MidCMDindex_Flag = true;
-		}
-		else if (rcmd->close_pos == 1 && rcmd->open_pos == 0 && rcmd->mid_pos == 0)
-		{
-			CloseCMDindex_Flag = true;
-		}
-		else
-		{
-			// Do nothing
-		}
-
-		// Check command index values Determine remote cmd status
-		if (OpenCMDindex_Flag && rcmd->open_pos == 0)
-		{
-			OpenCMDindex++;
-			OpenCMDindex_Flag = false;
-		}
-		if (MidCMDindex_Flag && rcmd->mid_pos == 0)
-		{
-			MidCMDindex++;
-			MidCMDindex_Flag = false;
-		}
-		if (CloseCMDindex_Flag && rcmd->close_pos == 0)
-		{
-			CloseCMDindex++;
-			CloseCMDindex_Flag = false;
-		}
-
-		// Determine remote cmd status
-		if (OpenCMDindex > 0)
-		{
-			cmd = OPEN_POS_CMD;
-			HOOK_OPEN_POS_CMD_FLAG = true;
-		}
-		if (MidCMDindex > 0)
-		{
-			cmd = MID_POS_CMD;
-			HOOK_MID_POS_CMD_FLAG = true;
-		}
-		if (CloseCMDindex > 0)
-		{
-			cmd = CLOSE_POS_CMD;
-			HOOK_CLOSE_POS_CMD_FLAG = true;
-		}
-
-		// Watch the commands and stop the motor to avoid and eliminate unexpected multiple commands while previous command taking action.
-		// Stop the motor in idle mode if needed.
-		if (HOOK_OPEN_POS_CMD_FLAG)
-		{
-
-			if ((OpenCMDindex > 1) || (MidCMDindex > 0) || (CloseCMDindex > 0))
+			break;
+		case SPIN_COMMAND_SET_PARAMETER:
+			switch (cmd->Parameter1)
 			{
-				MotorStop(motor_device);
+			case PARAMETER_KP:
+				pidKp = (uint16_t)cmd->Parameter2;
+				MC_Core_SpeedRegulatorReset(motor_device);
 
-				HOOK_OPEN_POS_CMD_FLAG = false;
-				HOOK_MID_POS_CMD_FLAG = false;
-				HOOK_CLOSE_POS_CMD_FLAG = false;
+				break;
+			case PARAMETER_KI:
+				pidKi = (uint16_t)cmd->Parameter2;
+				MC_Core_SpeedRegulatorReset(motor_device);
 
-				// HOOK_OPEN_POS_LED_FLAG = false;
-				HOOK_MID_POS_LED_FLAG = false;
-				HOOK_CLOSE_POS_LED_FLAG = false;
+				break;
+			case PARAMETER_KD:
+				pidKd = (uint16_t)cmd->Parameter2;
+				MC_Core_SpeedRegulatorReset(motor_device);
 
-				HOOK_TESTING_FLAG = false;
+				break;
+			case PARAMETER_PID_SCALING_SHIFT:
+				pidScaling = (uint16_t)cmd->Parameter2;
+				MC_Core_SpeedRegulatorReset(motor_device);
 
-				OpenCMDindex = 0;
-				MidCMDindex = 0;
-				CloseCMDindex = 0;
+				break;
+			case PARAMETER_PID_OUTPUT_MIN:
+				pidOutMin = (uint16_t)cmd->Parameter2;
+				MC_Core_SpeedRegulatorReset(motor_device);
 
-				hookProcessStat = HOOK_PROCESS_NONE;
+				break;
+			case PARAMETER_PID_OUTPUT_MAX:
+				pidOutMax = (uint16_t)cmd->Parameter2;
+				MC_Core_SpeedRegulatorReset(motor_device);
+
+				break;
+			case PARAMETER_CURRENT_LIMIT_VALUE:
+				currentLimit = (uint16_t)cmd->Parameter2;
+
+				break;
+			case PARAMETER_CURRENT_LIMIT_TYPE:
+				MX_TIM1_Init((uint16_t)cmd->Parameter2);
+
+				break;
+			case PARAMETER_CURRENT_LIMIT_ADC_FILTER_VALUE:
+				currentLimitMaxCount = (uint16_t)cmd->Parameter2;
+
+				break;
+			case PARAMETER_NONE:
+			default:
+				errorNo = ERROR_INVALID_PARAMETER;
+
+				break;
 			}
+
+			break;
+		case SPIN_COMMAND_READ_PARAMETER:
+
+			break;
 		}
-
-		if (HOOK_MID_POS_CMD_FLAG)
-		{
-
-			if ((OpenCMDindex > 0) || (MidCMDindex > 1) || (CloseCMDindex > 0))
-			{
-				MotorStop(motor_device);
-
-				HOOK_OPEN_POS_CMD_FLAG = false;
-				HOOK_MID_POS_CMD_FLAG = false;
-				HOOK_CLOSE_POS_CMD_FLAG = false;
-
-				HOOK_OPEN_POS_LED_FLAG = false;
-				// HOOK_MID_POS_LED_FLAG = false;
-				HOOK_CLOSE_POS_LED_FLAG = false;
-
-				HOOK_TESTING_FLAG = false;
-
-				OpenCMDindex = 0;
-				MidCMDindex = 0;
-				CloseCMDindex = 0;
-
-				hookProcessStat = HOOK_PROCESS_NONE;
-			}
-		}
-
-		if (HOOK_CLOSE_POS_CMD_FLAG)
-		{
-
-			if ((OpenCMDindex > 0) || (MidCMDindex > 0) || (CloseCMDindex > 1))
-			{
-				MotorStop(motor_device);
-
-				HOOK_OPEN_POS_CMD_FLAG = false;
-				HOOK_MID_POS_CMD_FLAG = false;
-				HOOK_CLOSE_POS_CMD_FLAG = false;
-
-				HOOK_OPEN_POS_LED_FLAG = false;
-				HOOK_MID_POS_LED_FLAG = false;
-				// HOOK_CLOSE_POS_LED_FLAG = false;
-
-				HOOK_TESTING_FLAG = false;
-
-				OpenCMDindex = 0;
-				MidCMDindex = 0;
-				CloseCMDindex = 0;
-
-				hookProcessStat = HOOK_PROCESS_NONE;
-			}
-		}
-
-		// Handle hook position
-		HOOK_PositionHandle(motor_device, rcmd, cmd, hook_position, stmh);
-
-		// Get the position by reading hall sensors' step-changes
-		if (motor_device->status == MC_RUN)
-		{
-
-			MC_Core_GetHallStatus(motor_device);
-
-			uint8_t currentHallStatus = motor_device->hall.status;
-
-			if (currentHallStatus != lastHallStatus)
-			{
-				if (motor_device->direction)
-				{
-					hook_position++;
-				}
-				else
-				{
-					hook_position--;
-				}
-
-				lastHallStatus = currentHallStatus;
-			}
-		}
-	}
-	break;
-
-	default:
-		break;
 	}
 }
 
@@ -599,7 +333,6 @@ void hook_motor_control_handle(MC_Handle_t *motor_device, hook_remote_cmd_t *rcm
  *@param: hd: pointer for hook data structure to store data
  *@retval: None.
  */
-static uint8_t OvercurrentCounter = 0;
 void ADC_ProcessHandle(hook_data_t *hd)
 {
 	float Vref = 0;
@@ -620,7 +353,7 @@ void ADC_ProcessHandle(hook_data_t *hd)
 		CurrentSense = (float)((Vref * CurrentSense_adcVal) / 4095); // Current conversion, Vadc by MCU.
 		CurrentSense *= CURR_SENSE_SCALE_FACTOR;					 // Current calc., Vshunt=Ishunt*Rshunt, Vshunt*GAIN=Vadc, Is=Vadc/(Rs*GAIN).
 
-		if (CurrentSense > 5 && ++OvercurrentCounter > 3)
+		if (CurrentSense > currentLimit && ++OvercurrentCounter > currentLimitMaxCount)
 		{
 			Motor_Device1.status = MC_OVERCURRENT;
 			MC_Core_Error(&Motor_Device1);
