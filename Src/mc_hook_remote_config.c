@@ -103,49 +103,6 @@ void hook_remote_data_get(hook_remote_cmd_t *rcmd)
 }
 
 /**
- *@brief: Function for clearing remote buffer.
- *@param: rcmd: pointer for remote cmd structure to store data
- *@retval: None
- */
-void ClearRemoteBuffer(hook_remote_cmd_t *rcmd)
-{
-	for (int i = 0; i < REMOTE_BUFF_SIZE; i++)
-	{
-		rcmd->r_data[i] = 0x00;
-	}
-
-	rcmd->open_pos = 0xff;
-	rcmd->mid_pos = 0xff;
-	rcmd->close_pos = 0xff;
-	rcmd->RemoteCommand_t.operation = 0xff;
-}
-
-/**
- *@brief: Function for clearing hook data buffer.
- *@param: hd: pointer for hook data structure to store data
- *@retval: None
- */
-void ClearHookBuffer(hook_data_t *hd)
-{
-	// HOOK buffer clearing
-	//	hd->h_data[0] = 0;
-	//	hd->h_data[1] = 0;
-	hd->h_data[2] = 0;
-	hd->h_data[3] = 0;
-	hd->h_data[4] = 0;
-	hd->h_data[5] = 0;
-	hd->h_data[6] = 0;
-	hd->h_data[7] = 0;
-	hd->h_data[8] = 0;
-	hd->h_data[9] = 0;
-	//	hd->h_data[10] = 0;
-	//	hd->h_data[11] = 0;
-	//	hd->open_pos_led = 0xff;
-	//	hd->mid_pos_led = 0xff;
-	//	hd->close_pos_led = 0xff;
-}
-
-/**
  *@brief: Function for motor device start.
  *@param: motor_device: pointer to MC_Handle structure
  *@retval: None
@@ -233,6 +190,7 @@ void MotorSetSpeed(MC_Handle_t *motor_device, uint32_t motor_speed)
 void HOOK_PositionHandle(MC_Handle_t *motor_device, hook_remote_cmd_t *rcmd, uint8_t command, int32_t hook_pos_count, STM_Handle_t *stmh)
 {
 	(void)stmh;
+	(void)rcmd;
 	// Perform the cmd cases
 	switch (command)
 	{
@@ -267,8 +225,6 @@ void HOOK_PositionHandle(MC_Handle_t *motor_device, hook_remote_cmd_t *rcmd, uin
 					OpenCMDindex = 0;
 					MidCMDindex = 0;
 					CloseCMDindex = 0;
-
-					ClearRemoteBuffer(rcmd);
 				}
 			}
 		}
@@ -318,8 +274,6 @@ void HOOK_PositionHandle(MC_Handle_t *motor_device, hook_remote_cmd_t *rcmd, uin
 					OpenCMDindex = 0;
 					MidCMDindex = 0;
 					CloseCMDindex = 0;
-
-					ClearRemoteBuffer(rcmd);
 				}
 			}
 			else
@@ -433,8 +387,6 @@ void hook_motor_control_handle(MC_Handle_t *motor_device, hook_remote_cmd_t *rcm
 			MidCMDindex = 0;
 			CloseCMDindex = 0;
 
-			ClearRemoteBuffer(rcmd);
-
 			// Set the process to idle mode.
 			hookProcessStat = HOOK_PROCESS_IDLE;
 
@@ -461,7 +413,6 @@ void hook_motor_control_handle(MC_Handle_t *motor_device, hook_remote_cmd_t *rcm
 			MidCMDindex = 0;
 			CloseCMDindex = 0;
 			hookProcessStat = HOOK_PROCESS_NONE;
-			ClearRemoteBuffer(rcmd);
 		}
 	}
 	break;
@@ -557,8 +508,6 @@ void hook_motor_control_handle(MC_Handle_t *motor_device, hook_remote_cmd_t *rcm
 				CloseCMDindex = 0;
 
 				hookProcessStat = HOOK_PROCESS_NONE;
-
-				ClearRemoteBuffer(rcmd);
 			}
 		}
 
@@ -584,8 +533,6 @@ void hook_motor_control_handle(MC_Handle_t *motor_device, hook_remote_cmd_t *rcm
 				CloseCMDindex = 0;
 
 				hookProcessStat = HOOK_PROCESS_NONE;
-
-				ClearRemoteBuffer(rcmd);
 			}
 		}
 
@@ -611,8 +558,6 @@ void hook_motor_control_handle(MC_Handle_t *motor_device, hook_remote_cmd_t *rcm
 				CloseCMDindex = 0;
 
 				hookProcessStat = HOOK_PROCESS_NONE;
-
-				ClearRemoteBuffer(rcmd);
 			}
 		}
 

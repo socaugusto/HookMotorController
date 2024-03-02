@@ -160,12 +160,6 @@ extern "C"
 	/**@brief Function prototype for reading remote data. */
 	void hook_remote_data_get(hook_remote_cmd_t *rcmd);
 
-	/**@brief Function prototype for clearing remote buffer. */
-	void ClearRemoteBuffer(hook_remote_cmd_t *rcmd);
-
-	/**@brief Function prototype for clearing hook data buffer. */
-	void ClearHookBuffer(hook_data_t *hd);
-
 	/**@brief Function prototype for motor device start. */
 	void MotorStart(MC_Handle_t *motor_device);
 
