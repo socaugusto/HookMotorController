@@ -201,7 +201,7 @@ int main(void)
       hook_command_run(&remote_cmd[idxProcess], &Motor_Device1);
       idxProcess = (idxProcess + 1) % (sizeof(remote_cmd) / sizeof(hook_remote_cmd_t));
     }
-    hook_monitoring_handle(&hook_data, &Motor_Device1);
+    hook_monitoring_handle(&hook_data);
 
     /* USER CODE END WHILE */
 

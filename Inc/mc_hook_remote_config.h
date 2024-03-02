@@ -132,14 +132,11 @@ extern "C"
 	/**@brief: Function prototype for ADC process handling as to the obtainning and the calculation of Vref Int, VBus and Current Sense values. */
 	void ADC_ProcessHandle(hook_data_t *hd);
 
-	/**@brief: Function prototype for handling hook position feedback to remote side indicator leds. */
-	void Position_FeedbackHandle(hook_data_t *hd, MC_Handle_t *motor_device);
-
 	/**@brief: Function prototype for UART tx transmit handling as to sending hook data to remote side. */
 	void UART_TransmitHandle(hook_data_t *hd);
 
 	/**@brief Function prototype for handling hook data to remote side as to obtainning and sending batt., load values and led position feedbacks. */
-	void hook_monitoring_handle(hook_data_t *hd, MC_Handle_t *motor_device);
+	void hook_monitoring_handle(hook_data_t *hd);
 
 	/*-----------------------------------------------------------------------------------------------------------------------------------*/
 

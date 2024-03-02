@@ -384,81 +384,6 @@ void ADC_ProcessHandle(hook_data_t *hd)
 }
 
 /**
- *@brief: Function for handling hook position feedback to remote side indicator leds.
- *@param: hd: pointer for hook data structure to store data
- *@retval: None.
- */
-void Position_FeedbackHandle(hook_data_t *hd, MC_Handle_t *motor_device)
-{
-	// Open pos. LED feedback formating
-	if (HOOK_OPEN_POS_LED_FLAG == true && HOOK_MID_POS_LED_FLAG == false && HOOK_CLOSE_POS_LED_FLAG == false)
-	{
-		hd->open_pos_led = 1;
-		hd->mid_pos_led = 0;
-		hd->close_pos_led = 0;
-	}
-	// Mid pos. LED feedback formating
-	else if (HOOK_OPEN_POS_LED_FLAG == false && HOOK_MID_POS_LED_FLAG == true && HOOK_CLOSE_POS_LED_FLAG == false)
-	{
-		hd->open_pos_led = 0;
-		hd->mid_pos_led = 1;
-		hd->close_pos_led = 0;
-	}
-	// Close pos. LED feedback formating
-	else if (HOOK_OPEN_POS_LED_FLAG == false && HOOK_MID_POS_LED_FLAG == false && HOOK_CLOSE_POS_LED_FLAG == true)
-	{
-		hd->open_pos_led = 0;
-		hd->mid_pos_led = 0;
-		hd->close_pos_led = 1;
-	}
-	else
-	{
-		// Do nothing
-		hd->open_pos_led = 0xff;
-		hd->mid_pos_led = 0xff;
-		hd->close_pos_led = 0xff;
-	}
-
-	// Toggle the remote leds while the commands taking action
-	if (HOOK_OPEN_POS_CMD_FLAG)
-	{
-		hd->open_pos_led = 2; // 1:led on, 2:led toggle
-		if (motor_device->status == MC_STOP)
-			hd->open_pos_led = 1; // 1:led on, 2:led toggle
-	}
-	if (HOOK_MID_POS_CMD_FLAG)
-	{
-		hd->mid_pos_led = 2; // 1:led on, 2:led toggle
-		if (motor_device->status == MC_STOP)
-			hd->mid_pos_led = 1; // 1:led on, 2:led toggle
-	}
-	if (HOOK_CLOSE_POS_CMD_FLAG)
-	{
-		hd->close_pos_led = 2; // 1:led on, 2:led toggle
-		if (motor_device->status == MC_STOP)
-			hd->close_pos_led = 1; // 1:led on, 2:led toggle
-	}
-
-	// Define fault led condition against unknown position, homing and testing process.
-	if (HOOK_UNKNOWN_POS_FLAG)
-	{
-		hd->fault_led = 1;
-	}
-	else if (HOOK_HOMING_FLAG)
-	{
-		hd->fault_led = 2;
-	}
-	else if (HOOK_TESTING_FLAG)
-	{
-		hd->fault_led = 3;
-	}
-	else
-	{
-		hd->fault_led = 0;
-	}
-}
-
-/**
  *@brief: Function for UART tx transmit handling as to sending hook data to remote side.
  *@param: hd: pointer for hook data structure to store data
  *@retval: None.
@@ -504,7 +429,7 @@ void UART_TransmitHandle(hook_data_t *hd)
  *@param: hd: pointer for hook data structure to store data
  *@retval: None.
  */
-void hook_monitoring_handle(hook_data_t *hd, MC_Handle_t *motor_device)
+void hook_monitoring_handle(hook_data_t *hd)
 {
 
 	if (TIM3_UpdateFlag_IsActive)
@@ -512,9 +437,6 @@ void hook_monitoring_handle(hook_data_t *hd, MC_Handle_t *motor_device)
 
 		// ADC handle
 		ADC_ProcessHandle(hd);
-
-		// Positon feedback handle
-		Position_FeedbackHandle(hd, motor_device);
 
 		// UART transmit process handle
 		UART_TransmitHandle(hd);
