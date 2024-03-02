@@ -33,7 +33,8 @@ typedef enum Command_e_
 {
 	SPIN_COMMAND_NONE,
 	SPIN_COMMAND_MOVE,
-	SPIN_COMMAND_STOP,
+	// Reserved from 1 to 9
+	SPIN_COMMAND_STOP = 10,
 	SPIN_COMMAND_EACK,
 	SPIN_COMMAND_REBOOT,
 	SPIN_COMMAND_SET_PARAMETER,
@@ -54,6 +55,12 @@ typedef enum Parameters_e_
 	PARAMETER_CURRENT_LIMIT_ADC_FILTER_VALUE,
 
 } Parameters_e;
+
+typedef struct Measurements_t_
+{
+	float voltage;
+	float current;
+} Measurements_t;
 
 /*-----------------------------------------------------------------------------------------------------------------------------------*/
 
@@ -96,6 +103,7 @@ static volatile bool HOOK_HOMING_MOTOR_STOP_FLAG = false;
 static int32_t hookPosition = UINT16_MAX;
 static uint16_t hookTarget = 0;
 static Errors_e errorNo = ERROR_NONE;
+static uint8_t seqNo = 0;
 
 extern uint16_t pidKp;
 extern uint16_t pidKi;
@@ -103,33 +111,14 @@ extern uint16_t pidKd;
 extern uint16_t pidScaling;
 extern uint16_t pidOutMin;
 extern uint16_t pidOutMax;
-static uint16_t currentLimit = 5;
+static uint16_t currentLimit = 5000;
 static uint16_t currentLimitMaxCount = 3;
 static uint16_t OvercurrentCounter = 0;
+static Measurements_t measurement;
 
 /*-----------------------------------------------------------------------------------------------------------------------------------*/
 
 /*Private Functions------------------------------------------------------------------------------------------------------------------*/
-/**
- *@brief: Function for hook data default init.
- *@param: hd: pointer for hook data structure to store data
- *@retval: None
- */
-void HOOK_DATA_Init(hook_data_t *hd)
-{
-	// initial data
-	hd->h_header[0] = HDR;
-	hd->h_header[1] = H_HDR;
-	hd->batt_voltage_m = 0;
-	hd->load_current_m = 0;
-	hd->open_pos_led = 0;
-	hd->mid_pos_led = 0;
-	hd->close_pos_led = 0;
-	hd->fault_led = 0;
-	hd->cr = CR;
-	hd->lf = LF;
-}
-
 /**
  *@brief: Function for motor device start.
  *@param: motor_device: pointer to MC_Handle structure
@@ -333,7 +322,7 @@ void hook_command_run(hook_remote_cmd_t *rcmd, MC_Handle_t *motor_device)
  *@param: hd: pointer for hook data structure to store data
  *@retval: None.
  */
-void ADC_ProcessHandle(hook_data_t *hd)
+Measurements_t getMeasurements(void)
 {
 	float Vref = 0;
 	float CurrentSense = 0;
@@ -351,7 +340,7 @@ void ADC_ProcessHandle(hook_data_t *hd)
 		uint16_t CurrentSense_adcVal = adc1_RawData[0]; // Read adc raw data, PA4.
 
 		CurrentSense = (float)((Vref * CurrentSense_adcVal) / 4095); // Current conversion, Vadc by MCU.
-		CurrentSense *= CURR_SENSE_SCALE_FACTOR;					 // Current calc., Vshunt=Ishunt*Rshunt, Vshunt*GAIN=Vadc, Is=Vadc/(Rs*GAIN).
+		CurrentSense *= (CURR_SENSE_SCALE_FACTOR * 1000);			 // Current calc., Vshunt=Ishunt*Rshunt, Vshunt*GAIN=Vadc, Is=Vadc/(Rs*GAIN).
 
 		if (CurrentSense > currentLimit && ++OvercurrentCounter > currentLimitMaxCount)
 		{
@@ -364,15 +353,15 @@ void ADC_ProcessHandle(hook_data_t *hd)
 			OvercurrentCounter = 0;
 		}
 
-		hd->load_current_m = CurrentSense;
+		measurement.current = CurrentSense;
 
 		// VBus formatting
 		uint16_t VBus_adcVal = adc1_RawData[1]; // Read adc raw data, PA5.
 
 		VBus = (float)((Vref * VBus_adcVal) / 4095); // Voltage conversion, Vadc by MCU.
-		VBus *= VBUS_SCALE_FACTOR;					 // Voltage calc., VBUS voltage equals: VBus*VBUS_SCALE_FACTOR.
+		VBus *= (VBUS_SCALE_FACTOR * 1000);			 // Voltage calc., VBUS voltage equals: VBus*VBUS_SCALE_FACTOR.
 
-		hd->batt_voltage_m = VBus;
+		measurement.voltage = VBus;
 
 		// Clear flag
 		ADC1_ConvCpltFlag_IsActive = false;
@@ -381,6 +370,8 @@ void ADC_ProcessHandle(hook_data_t *hd)
 		HAL_ADC_Stop_DMA(&hadc);
 		HAL_ADC_Start_DMA(&hadc, (uint32_t *)adc1_RawData, 3);
 	}
+
+	return measurement;
 }
 
 /**
@@ -388,36 +379,30 @@ void ADC_ProcessHandle(hook_data_t *hd)
  *@param: hd: pointer for hook data structure to store data
  *@retval: None.
  */
-void UART_TransmitHandle(hook_data_t *hd)
+void sendReply(HookReply_t *hd, Measurements_t measurements)
 {
 
 	if (tim3_TimerTick >= HOOK_MONITOR_REFRESH_TIMESTAMP)
 	{
+		hd->header = 0xFE;
+		hd->type = 0x01;
 
-		// Voltage formatting
-		uint8_t v1 = (uint8_t)hd->batt_voltage_m;
-		uint8_t v2 = (uint8_t)((uint16_t)(hd->batt_voltage_m * 100) - (uint16_t)(v1 * 100));
+		hd->data.voltage = (uint16_t)measurements.voltage;
+		hd->data.current = (int16_t)measurements.current;
 
-		// Current formatting
-		uint8_t c1 = (uint8_t)hd->load_current_m;
-		uint8_t c2 = (uint8_t)((uint16_t)(hd->load_current_m * 100) - (uint16_t)(c1 * 100));
+		hd->data.error = errorNo;
+		hd->data.position = (uint16_t)hookPosition;
 
-		// UART buffer formatting
-		hd->h_data[0] = hd->h_header[0];
-		hd->h_data[1] = hd->h_header[1];
-		hd->h_data[2] = v1 + '0';
-		hd->h_data[3] = v2 + '0';
-		hd->h_data[4] = c1 + '0';
-		hd->h_data[5] = c2 + '0';
-		hd->h_data[6] = hd->open_pos_led + '0';
-		hd->h_data[7] = hd->mid_pos_led + '0';
-		hd->h_data[8] = hd->close_pos_led + '0';
-		hd->h_data[9] = hd->fault_led + '0';
-		hd->h_data[10] = hd->cr;
-		hd->h_data[11] = hd->lf;
+		hd->data.command.sequenceNumber = seqNo;
+		hd->data.command.dataType = 0;	 // TODO(Silvio): Add support for notifies and read parameters
+		hd->data.command.dataNumber = 0; // TODO(Silvio): Here is the read data and notify number
+		hd->data.dataValues[0] = 0x55;
+		hd->data.dataValues[1] = 0xAA;
+		hd->data.dataValues[2] = 0x55;
+		hd->data.dataValues[3] = 0xAA;
 
 		// UART transmit
-		HAL_UART_Transmit_DMA(&huart1, hd->h_data, sizeof(hd->h_data));
+		HAL_UART_Transmit_DMA(&huart1, (uint8_t *)hd, sizeof(HookReply_t));
 
 		// Clear timer tick
 		tim3_TimerTick = 0;
@@ -429,17 +414,17 @@ void UART_TransmitHandle(hook_data_t *hd)
  *@param: hd: pointer for hook data structure to store data
  *@retval: None.
  */
-void hook_monitoring_handle(hook_data_t *hd)
+void hook_monitoring_handle(HookReply_t *hd)
 {
 
 	if (TIM3_UpdateFlag_IsActive)
 	{
 
 		// ADC handle
-		ADC_ProcessHandle(hd);
+		Measurements_t values = getMeasurements();
 
 		// UART transmit process handle
-		UART_TransmitHandle(hd);
+		sendReply(hd, values);
 
 		// Clear flag
 		TIM3_UpdateFlag_IsActive = false;

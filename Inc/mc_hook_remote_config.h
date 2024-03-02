@@ -33,7 +33,7 @@ extern "C"
 #define CURR_SENSE_SCALE_FACTOR ((float)(1 / (CURR_SENSE_RSHUNT * CURR_SENSE_GAIN)))
 
 // UART
-#define HOOK_MONITOR_REFRESH_TIMESTAMP 500 // Update hook monitoring values per 500ms.
+#define HOOK_MONITOR_REFRESH_TIMESTAMP 20 // Update hook monitoring values per 20ms.
 
 #define REMOTE_BUFF_SIZE 8
 #define HOOK_BUFF_SIZE 12
@@ -85,21 +85,31 @@ extern "C"
 		uint8_t cr, lf;
 	} hook_remote_cmd_t;
 
-	/**@brief structure for hook data. */
-	typedef struct _hook_data_t
+#pragma pack(1)
+	typedef struct stdReply_t_
 	{
+		uint16_t voltage; // mV
+		int16_t current;  // mA
+		uint16_t position;
+		uint8_t error;
+		struct
+		{
+			uint8_t sequenceNumber : 3;
+			uint8_t dataType : 1;
+			uint8_t dataNumber : 4;
+		} command;
+		uint8_t dataValues[4];
 
-		uint8_t h_data[HOOK_BUFF_SIZE];
-		uint8_t h_header[2];
-		float batt_voltage_m;
-		float load_current_m;
-		uint8_t open_pos_led;
-		uint8_t mid_pos_led;
-		uint8_t close_pos_led;
-		uint8_t fault_led;
-		uint8_t cr, lf;
+	} stdReply_t;
 
-	} hook_data_t;
+#pragma pack(1)
+	typedef struct HookReply_t_
+	{
+		uint8_t header;
+		uint8_t type;
+		stdReply_t data;
+		uint16_t checksum;
+	} HookReply_t;
 
 	/*-----------------------------------------------------------------------------------------------------------------------------------*/
 
@@ -108,9 +118,6 @@ extern "C"
 	/*-----------------------------------------------------------------------------------------------------------------------------------*/
 
 	/*Private Functions------------------------------------------------------------------------------------------------------------------*/
-	/**@brief: Function prototype for hook data default init. */
-	void HOOK_DATA_Init(hook_data_t *hd);
-
 	/**@brief Function prototype for reading remote data. */
 	void hook_command_run(hook_remote_cmd_t *rcmd, MC_Handle_t *motor_device);
 
@@ -129,14 +136,8 @@ extern "C"
 	/**@brief Function prototype for setting motor speed. */
 	void MotorSetSpeed(MC_Handle_t *motor_device, uint32_t motor_speed);
 
-	/**@brief: Function prototype for ADC process handling as to the obtainning and the calculation of Vref Int, VBus and Current Sense values. */
-	void ADC_ProcessHandle(hook_data_t *hd);
-
-	/**@brief: Function prototype for UART tx transmit handling as to sending hook data to remote side. */
-	void UART_TransmitHandle(hook_data_t *hd);
-
 	/**@brief Function prototype for handling hook data to remote side as to obtainning and sending batt., load values and led position feedbacks. */
-	void hook_monitoring_handle(hook_data_t *hd);
+	void hook_monitoring_handle(HookReply_t *hd);
 
 	/*-----------------------------------------------------------------------------------------------------------------------------------*/
 

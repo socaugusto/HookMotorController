@@ -62,9 +62,9 @@ extern volatile bool TIM3_UpdateFlag_IsActive;
 extern uint16_t adc1_RawData[3];
 extern volatile bool ADC1_ConvCpltFlag_IsActive;
 
-hook_remote_cmd_t remote_cmd[8]; // global remote command data structure variable
+hook_remote_cmd_t remoteCommand[8]; // global remote command data structure variable
 static int8_t idxReceive = 0;
-hook_data_t hook_data; // global hook data structure variable
+static HookReply_t reply;
 
 STM_Handle_t stmHandle; // state machine motor control handle variable
 
@@ -105,8 +105,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
   if (huart->Instance == USART1)
   {
-    idxReceive = (idxReceive + 1) % (sizeof(remote_cmd) / sizeof(hook_remote_cmd_t));
-    HAL_UART_Receive_DMA(&huart1, remote_cmd[idxReceive].r_data, sizeof(remote_cmd[idxReceive].r_data));
+    idxReceive = (idxReceive + 1) % (sizeof(remoteCommand) / sizeof(hook_remote_cmd_t));
+    HAL_UART_Receive_DMA(&huart1, remoteCommand[idxReceive].r_data, sizeof(remoteCommand[idxReceive].r_data));
   }
 }
 
@@ -162,13 +162,11 @@ int main(void)
   MX_NVIC_Init();
   /* USER CODE BEGIN 2 */
 
-  HOOK_DATA_Init(&hook_data);
-
   HAL_ADC_Start_DMA(&hadc, (uint32_t *)adc1_RawData, 3);
 
   HAL_TIM_Base_Start_IT(&htim3);
 
-  HAL_UART_Receive_DMA(&huart1, remote_cmd[idxReceive].r_data, sizeof(remote_cmd[idxReceive].r_data));
+  HAL_UART_Receive_DMA(&huart1, remoteCommand[idxReceive].r_data, sizeof(remoteCommand[idxReceive].r_data));
 
   int8_t idxProcess = 0;
 
@@ -193,15 +191,15 @@ int main(void)
     }
     else if (idxProcess > idxReceive)
     {
-      count = ((sizeof(remote_cmd) / sizeof(hook_remote_cmd_t)) + idxReceive) - idxProcess;
+      count = ((sizeof(remoteCommand) / sizeof(hook_remote_cmd_t)) + idxReceive) - idxProcess;
     }
 
     if (count)
     {
-      hook_command_run(&remote_cmd[idxProcess], &Motor_Device1);
-      idxProcess = (idxProcess + 1) % (sizeof(remote_cmd) / sizeof(hook_remote_cmd_t));
+      hook_command_run(&remoteCommand[idxProcess], &Motor_Device1);
+      idxProcess = (idxProcess + 1) % (sizeof(remoteCommand) / sizeof(hook_remote_cmd_t));
     }
-    hook_monitoring_handle(&hook_data);
+    hook_monitoring_handle(&reply);
 
     /* USER CODE END WHILE */
 
