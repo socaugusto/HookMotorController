@@ -39,6 +39,7 @@ typedef enum Command_e_
 	SPIN_COMMAND_REBOOT,
 	SPIN_COMMAND_SET_PARAMETER,
 	SPIN_COMMAND_READ_PARAMETER,
+	SPIN_COMMAND_READY_FOR_LOADING,
 } Command_e;
 
 typedef enum Parameters_e_
@@ -74,31 +75,6 @@ extern ADC_HandleTypeDef hadc;
 extern DMA_HandleTypeDef hdma_adc;
 uint16_t adc1_RawData[3];
 volatile bool ADC1_ConvCpltFlag_IsActive = false;
-
-static volatile bool HOOK_OPEN_POS_LED_FLAG = false;
-static volatile bool HOOK_MID_POS_LED_FLAG = false;
-static volatile bool HOOK_CLOSE_POS_LED_FLAG = false;
-
-static volatile bool HOOK_UNKNOWN_POS_FLAG = false;
-static volatile bool HOOK_HOMING_FLAG = false;
-static volatile bool HOOK_TESTING_FLAG = false;
-
-static volatile bool HOOK_OPEN_POS_CMD_FLAG = false;
-static volatile bool HOOK_MID_POS_CMD_FLAG = false;
-static volatile bool HOOK_CLOSE_POS_CMD_FLAG = false;
-
-static volatile bool OpenCMDindex_Flag = false;
-static volatile bool MidCMDindex_Flag = false;
-static volatile bool CloseCMDindex_Flag = false;
-
-// static uint8_t cmd;
-// static uint32_t OpenCMDindex = 0;
-// static uint32_t MidCMDindex = 0;
-// static uint32_t CloseCMDindex = 0;
-// static uint8_t lastHookStatus;
-// static hook_process_stat_t hookProcessStat = HOOK_PROCESS_NONE;
-
-static volatile bool HOOK_HOMING_MOTOR_STOP_FLAG = false;
 
 static int32_t hookPosition = UINT16_MAX;
 static uint16_t hookTarget = 0;
