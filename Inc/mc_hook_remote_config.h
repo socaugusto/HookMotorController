@@ -33,7 +33,7 @@ extern "C"
 #define CURR_SENSE_SCALE_FACTOR ((float)(1 / (CURR_SENSE_RSHUNT * CURR_SENSE_GAIN)))
 
 // UART
-#define HOOK_MONITOR_REFRESH_TIMESTAMP 20 // Update hook monitoring values per 20ms.
+#define HOOK_MONITOR_REFRESH_TIMESTAMP 250 // Update hook monitoring values per 250ms.
 
 #define REMOTE_BUFF_SIZE 8
 #define HOOK_BUFF_SIZE 12

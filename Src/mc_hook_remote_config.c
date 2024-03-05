@@ -37,6 +37,7 @@ typedef enum Command_e_
 	SPIN_COMMAND_STOP = 10,
 	SPIN_COMMAND_EACK,
 	SPIN_COMMAND_REBOOT,
+	SPIN_COMMAND_SET_POSITION,
 	SPIN_COMMAND_SET_PARAMETER,
 	SPIN_COMMAND_READ_PARAMETER,
 	SPIN_COMMAND_READY_FOR_LOADING,
@@ -91,6 +92,11 @@ static uint16_t currentLimit = 5000;
 static uint16_t currentLimitMaxCount = 3;
 static uint16_t OvercurrentCounter = 0;
 static Measurements_t measurement;
+static uint32_t readyForLoading = 0;
+static uint32_t loadingData = 0;
+static bool currentLimitType = true;
+static Parameters_e readParameter;
+static int32_t valueParameter;
 
 /*-----------------------------------------------------------------------------------------------------------------------------------*/
 
@@ -233,6 +239,10 @@ void hook_command_run(hook_remote_cmd_t *rcmd, MC_Handle_t *motor_device)
 			HAL_NVIC_SystemReset();
 
 			break;
+		case SPIN_COMMAND_SET_POSITION:
+			hookPosition = cmd->Parameter1;
+
+			break;
 		case SPIN_COMMAND_SET_PARAMETER:
 			switch (cmd->Parameter1)
 			{
@@ -271,7 +281,8 @@ void hook_command_run(hook_remote_cmd_t *rcmd, MC_Handle_t *motor_device)
 
 				break;
 			case PARAMETER_CURRENT_LIMIT_TYPE:
-				MX_TIM1_Init((uint16_t)cmd->Parameter2);
+				currentLimitType = (uint16_t)cmd->Parameter2;
+				MX_TIM1_Init(currentLimitType);
 
 				break;
 			case PARAMETER_CURRENT_LIMIT_ADC_FILTER_VALUE:
@@ -287,6 +298,65 @@ void hook_command_run(hook_remote_cmd_t *rcmd, MC_Handle_t *motor_device)
 
 			break;
 		case SPIN_COMMAND_READ_PARAMETER:
+			switch (cmd->Parameter1)
+			{
+			case PARAMETER_KP:
+				readParameter = PARAMETER_KP;
+				valueParameter = pidKp;
+
+				break;
+			case PARAMETER_KI:
+				readParameter = PARAMETER_KI;
+				valueParameter = pidKi;
+
+				break;
+			case PARAMETER_KD:
+				readParameter = PARAMETER_KD;
+				valueParameter = pidKd;
+
+				break;
+			case PARAMETER_PID_SCALING_SHIFT:
+				readParameter = PARAMETER_PID_SCALING_SHIFT;
+				valueParameter = pidScaling;
+
+				break;
+			case PARAMETER_PID_OUTPUT_MIN:
+				readParameter = PARAMETER_PID_OUTPUT_MIN;
+				valueParameter = pidOutMin;
+
+				break;
+			case PARAMETER_PID_OUTPUT_MAX:
+				readParameter = PARAMETER_PID_OUTPUT_MAX;
+				valueParameter = pidOutMax;
+
+				break;
+			case PARAMETER_CURRENT_LIMIT_VALUE:
+				readParameter = PARAMETER_CURRENT_LIMIT_VALUE;
+				valueParameter = currentLimit;
+
+				break;
+			case PARAMETER_CURRENT_LIMIT_TYPE:
+				readParameter = PARAMETER_CURRENT_LIMIT_ADC_FILTER_VALUE;
+				valueParameter = currentLimitType;
+
+				break;
+			case PARAMETER_CURRENT_LIMIT_ADC_FILTER_VALUE:
+				readParameter = PARAMETER_CURRENT_LIMIT_ADC_FILTER_VALUE;
+				valueParameter = currentLimitMaxCount;
+
+				break;
+			case PARAMETER_NONE:
+			default:
+				errorNo = ERROR_INVALID_PARAMETER;
+
+				break;
+			}
+
+			break;
+		case SPIN_COMMAND_READY_FOR_LOADING:
+			readyForLoading = (uint16_t)cmd->Parameter1;
+			loadingData = (uint16_t)cmd->Parameter2 << 16;
+			loadingData |= (uint16_t)cmd->Parameter3;
 
 			break;
 		}
@@ -370,12 +440,31 @@ void sendReply(HookReply_t *hd, Measurements_t measurements)
 		hd->data.position = (uint16_t)hookPosition;
 
 		hd->data.command.sequenceNumber = seqNo;
-		hd->data.command.dataType = 0;	 // TODO(Silvio): Add support for notifies and read parameters
-		hd->data.command.dataNumber = 0; // TODO(Silvio): Here is the read data and notify number
-		hd->data.dataValues[0] = 0x55;
-		hd->data.dataValues[1] = 0xAA;
-		hd->data.dataValues[2] = 0x55;
-		hd->data.dataValues[3] = 0xAA;
+
+		if (readyForLoading)
+		{
+			hd->data.command.dataType = 1;
+			hd->data.command.dataNumber = readyForLoading; // TODO(Silvio): Here is the read data and notify number
+			hd->data.dataValues[0] = loadingData;
+			hd->data.dataValues[1] = loadingData >> 8;
+			hd->data.dataValues[2] = loadingData >> 16;
+			hd->data.dataValues[3] = loadingData >> 24;
+
+			readyForLoading = 0;
+		}
+		else
+		{
+
+			hd->data.command.dataType = 0;
+			hd->data.command.dataNumber = readParameter;
+			hd->data.dataValues[0] = valueParameter;
+			hd->data.dataValues[1] = valueParameter >> 8;
+			hd->data.dataValues[2] = valueParameter >> 16;
+			hd->data.dataValues[3] = valueParameter >> 24;
+
+			readParameter = 0;
+			valueParameter = 0;
+		}
 
 		// UART transmit
 		HAL_UART_Transmit_DMA(&huart1, (uint8_t *)hd, sizeof(HookReply_t));
@@ -395,7 +484,6 @@ void hook_monitoring_handle(HookReply_t *hd)
 
 	if (TIM3_UpdateFlag_IsActive)
 	{
-
 		// ADC handle
 		Measurements_t values = getMeasurements();
 
