@@ -199,7 +199,7 @@ int main(void)
       hook_command_run(&remoteCommand[idxProcess], &Motor_Device1);
       idxProcess = (idxProcess + 1) % (sizeof(remoteCommand) / sizeof(hook_remote_cmd_t));
     }
-    hook_monitoring_handle(&reply);
+    hook_monitoring_handle(&reply, &Motor_Device1);
 
     /* USER CODE END WHILE */
 
@@ -621,6 +621,11 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(Start_Stop1_GPIO_Port, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = END_STROKE_SENSOR_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(END_STROKE_SENSOR_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : OC_SEL_Pin */
   GPIO_InitStruct.Pin = OC_SEL_Pin;

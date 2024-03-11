@@ -77,7 +77,8 @@ extern DMA_HandleTypeDef hdma_adc;
 uint16_t adc1_RawData[3];
 volatile bool ADC1_ConvCpltFlag_IsActive = false;
 
-static int32_t hookPosition = UINT16_MAX;
+static uint8_t endOfStrokeSensor = 0;
+static int32_t hookPosition = INT16_MAX;
 static uint16_t hookTarget = 0;
 static Errors_e errorNo = ERROR_NONE;
 static uint8_t seqNo = 0;
@@ -439,6 +440,11 @@ void sendReply(HookReply_t *hd, Measurements_t measurements)
 		hd->data.error = errorNo;
 		hd->data.position = (uint16_t)hookPosition;
 
+		if (endOfStrokeSensor)
+		{
+			hd->data.position |= 0x8000;
+		}
+
 		hd->data.command.sequenceNumber = seqNo;
 
 		if (readyForLoading)
@@ -479,8 +485,20 @@ void sendReply(HookReply_t *hd, Measurements_t measurements)
  *@param: hd: pointer for hook data structure to store data
  *@retval: None.
  */
-void hook_monitoring_handle(HookReply_t *hd)
+void hook_monitoring_handle(HookReply_t *hd, MC_Handle_t *motor_device)
 {
+	if (HAL_GPIO_ReadPin(END_STROKE_SENSOR_Port, END_STROKE_SENSOR_Pin) == GPIO_PIN_RESET)
+	{
+		if (!endOfStrokeSensor)
+		{
+			MotorStop(motor_device);
+		}
+		endOfStrokeSensor = 1;
+	}
+	else
+	{
+		endOfStrokeSensor = 0;
+	}
 
 	if (TIM3_UpdateFlag_IsActive)
 	{

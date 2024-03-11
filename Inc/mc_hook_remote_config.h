@@ -137,7 +137,7 @@ extern "C"
 	void MotorSetSpeed(MC_Handle_t *motor_device, uint32_t motor_speed);
 
 	/**@brief Function prototype for handling hook data to remote side as to obtainning and sending batt., load values and led position feedbacks. */
-	void hook_monitoring_handle(HookReply_t *hd);
+	void hook_monitoring_handle(HookReply_t *hd, MC_Handle_t *motor_device);
 
 	/*-----------------------------------------------------------------------------------------------------------------------------------*/
 
