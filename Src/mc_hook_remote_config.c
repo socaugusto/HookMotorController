@@ -55,6 +55,7 @@ typedef enum Parameters_e_
 	PARAMETER_CURRENT_LIMIT_VALUE,
 	PARAMETER_CURRENT_LIMIT_TYPE,
 	PARAMETER_CURRENT_LIMIT_ADC_FILTER_VALUE,
+	PARAMETER_CURRENT_PIN_CONFIG,
 
 } Parameters_e;
 
@@ -290,6 +291,26 @@ void hook_command_run(hook_remote_cmd_t *rcmd, MC_Handle_t *motor_device)
 				currentLimitMaxCount = (uint16_t)cmd->Parameter2;
 
 				break;
+			case PARAMETER_CURRENT_PIN_CONFIG:
+				if (cmd->Parameter2 & 0x01)
+				{
+					HAL_GPIO_WritePin(GPIOF, OCTH_STBY1_Pin, GPIO_PIN_SET);
+				}
+				else
+				{
+					HAL_GPIO_WritePin(GPIOF, OCTH_STBY1_Pin, GPIO_PIN_RESET);
+				}
+
+				if (cmd->Parameter2 & 0x02)
+				{
+					HAL_GPIO_WritePin(GPIOF, OCTHSTBY2_Pin, GPIO_PIN_SET);
+				}
+				else
+				{
+					HAL_GPIO_WritePin(GPIOF, OCTHSTBY2_Pin, GPIO_PIN_RESET);
+				}
+
+				break;
 			case PARAMETER_NONE:
 			default:
 				errorNo = ERROR_INVALID_PARAMETER;
@@ -344,6 +365,23 @@ void hook_command_run(hook_remote_cmd_t *rcmd, MC_Handle_t *motor_device)
 			case PARAMETER_CURRENT_LIMIT_ADC_FILTER_VALUE:
 				readParameter = PARAMETER_CURRENT_LIMIT_ADC_FILTER_VALUE;
 				valueParameter = currentLimitMaxCount;
+
+				break;
+			case PARAMETER_CURRENT_PIN_CONFIG:
+				readParameter = PARAMETER_CURRENT_PIN_CONFIG;
+				if (HAL_GPIO_ReadPin(GPIOF, OCTH_STBY1_Pin))
+				{
+					valueParameter = 0x01;
+				}
+				else
+				{
+					valueParameter = 0x00;
+				}
+
+				if (HAL_GPIO_ReadPin(GPIOF, OCTHSTBY2_Pin))
+				{
+					valueParameter |= 0x02;
+				}
 
 				break;
 			case PARAMETER_NONE:
@@ -443,6 +481,10 @@ void sendReply(HookReply_t *hd, Measurements_t measurements)
 		if (endOfStrokeSensor)
 		{
 			hd->data.position |= 0x8000;
+		}
+		else
+		{
+			hd->data.position &= ~0x8000;
 		}
 
 		hd->data.command.sequenceNumber = seqNo;
