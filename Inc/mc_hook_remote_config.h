@@ -111,6 +111,15 @@ extern "C"
 		uint16_t checksum;
 	} HookReply_t;
 
+	typedef enum Errors_e_
+	{
+		ERROR_NONE,
+		ERROR_INVALID_PARAMETER,
+		ERROR_FAILED_TO_START_MOTOR,
+		ERROR_OVERLOAD,
+
+	} Errors_e;
+
 	/*-----------------------------------------------------------------------------------------------------------------------------------*/
 
 	/*Variables--------------------------------------------------------------------------------------------------------------------------*/
@@ -138,6 +147,9 @@ extern "C"
 
 	/**@brief Function prototype for handling hook data to remote side as to obtainning and sending batt., load values and led position feedbacks. */
 	void hook_monitoring_handle(HookReply_t *hd, MC_Handle_t *motor_device);
+
+	/**@brief Set external errors. */
+	void hook_setError(Errors_e number);
 
 	/*-----------------------------------------------------------------------------------------------------------------------------------*/
 

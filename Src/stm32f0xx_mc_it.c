@@ -30,6 +30,7 @@
 #include "stm32f0xx_ll_exti.h"
 #include "stm32f0xx_hal.h"
 #include "stm32f0xx.h"
+#include "mc_hook_remote_config.h"
 
 /* USER CODE BEGIN Includes */
 
@@ -103,6 +104,7 @@ void TIMx_BRK_M1_Handler(void)
   {
     LL_TIM_ClearFlag_BRK((TIM_TypeDef *)Motor_Device1.phf_timer);
     Motor_Device1.status = MC_OVERCURRENT;
+    hook_setError(ERROR_OVERLOAD);
     MC_Core_Error(&Motor_Device1);
   }
   /* TIM commutation event */

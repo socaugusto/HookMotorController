@@ -21,14 +21,6 @@
 #include <memory.h>
 
 /*Definitions------------------------------------------------------------------------------------------------------------------------*/
-typedef enum Errors_e_
-{
-	ERROR_NONE,
-	ERROR_INVALID_PARAMETER,
-	ERROR_FAILED_TO_START_MOTOR,
-
-} Errors_e;
-
 typedef enum Command_e_
 {
 	SPIN_COMMAND_NONE,
@@ -210,6 +202,11 @@ static motor_direction_stat_t MotorGetDirection(int16_t speed)
 static void MotorSetTargetPosition(uint16_t target)
 {
 	hookTarget = target;
+}
+
+void hook_setError(Errors_e number)
+{
+	errorNo = number;
 }
 
 void hook_command_run(hook_remote_cmd_t *rcmd, MC_Handle_t *motor_device)
@@ -430,6 +427,7 @@ Measurements_t getMeasurements(void)
 		if (CurrentSense > currentLimit && ++OvercurrentCounter > currentLimitMaxCount)
 		{
 			Motor_Device1.status = MC_OVERCURRENT;
+			hook_setError(ERROR_OVERLOAD);
 			MC_Core_Error(&Motor_Device1);
 			OvercurrentCounter = 0;
 		}
