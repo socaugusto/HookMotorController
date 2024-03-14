@@ -194,6 +194,14 @@ void MotorUpdatePosition(MC_Handle_t *motor_device)
 	}
 }
 
+void MotorPositionTargetTest(MC_Handle_t *motor_device)
+{
+	if (hookPosition == hookTarget)
+	{
+		MotorStop(motor_device);
+	}
+}
+
 static motor_direction_stat_t MotorGetDirection(int16_t speed)
 {
 	return ((speed > 0) ? CW : CCW);
@@ -219,7 +227,7 @@ void hook_command_run(hook_remote_cmd_t *rcmd, MC_Handle_t *motor_device)
 		{
 		case SPIN_COMMAND_MOVE:
 			MotorSetDirection(motor_device, MotorGetDirection(cmd->Parameter2));
-			MotorSetSpeed(motor_device, cmd->Parameter2);
+			MotorSetSpeed(motor_device, (cmd->Parameter2 > 0) ? cmd->Parameter2 : -cmd->Parameter2);
 			MotorSetTargetPosition(cmd->Parameter1);
 			MotorStart(motor_device);
 

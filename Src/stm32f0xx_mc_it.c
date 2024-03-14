@@ -46,6 +46,7 @@
 
 /* USER CODE BEGIN PRIVATE */
 extern void MotorUpdatePosition(MC_Handle_t *motor_device);
+extern void MotorPositionTargetTest(MC_Handle_t *motor_device);
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -132,6 +133,7 @@ void HALL_TIM_M1_IRQHandler(void)
         MC_Core_NextStepScheduling(&Motor_Device1);
         MC_Core_HallNextStep(&Motor_Device1, 0);
         MotorUpdatePosition(&Motor_Device1);
+        MotorPositionTargetTest(&Motor_Device1);
       }
     }
   }
