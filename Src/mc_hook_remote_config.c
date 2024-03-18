@@ -199,6 +199,7 @@ void MotorPositionTargetTest(MC_Handle_t *motor_device)
 	if (hookPosition == hookTarget)
 	{
 		MotorStop(motor_device);
+		seqNo = (seqNo + 1) % 8;
 	}
 }
 
@@ -222,6 +223,22 @@ void hook_command_run(hook_remote_cmd_t *rcmd, MC_Handle_t *motor_device)
 	if (rcmd->r_data[0] == 0xFE)
 	{
 		RemoteCommand_t *cmd = (RemoteCommand_t *)&rcmd->r_data[1];
+
+		if ((cmd->operation < SPIN_COMMAND_STOP) && (cmd->operation >= SPIN_COMMAND_MOVE))
+		{
+			uint8_t cmdSeqNo = cmd->operation - 1;
+			uint8_t nextSeqNo = (seqNo + 1) % 8;
+
+			if (cmdSeqNo == nextSeqNo)
+			{
+				cmd->operation = SPIN_COMMAND_MOVE;
+			}
+			else
+			{
+				cmd->operation = SPIN_COMMAND_NONE;
+				errorNo = ERROR_INVALID_SEQUENCE_NUMBER;
+			}
+		}
 
 		switch (cmd->operation)
 		{
@@ -401,6 +418,9 @@ void hook_command_run(hook_remote_cmd_t *rcmd, MC_Handle_t *motor_device)
 			readyForLoading = (uint16_t)cmd->Parameter1;
 			loadingData = (uint16_t)cmd->Parameter2 << 16;
 			loadingData |= (uint16_t)cmd->Parameter3;
+
+			break;
+		default:
 
 			break;
 		}
