@@ -18,6 +18,8 @@ add_executable(Hook_Motor
     src/user/syscalls.c
     src/user/sysmem.c
 
+    src/encoding_checksum.cpp
+
     src/aspep.c
     src/mc_config.c
     src/mcp_config.c

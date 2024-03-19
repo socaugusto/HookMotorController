@@ -16,6 +16,7 @@
 
 /*Includes---------------------------------------------------------------------------------------------------------------------------*/
 #include "mc_hook_remote_config.h"
+#include "encoding_checksum.h"
 #include "main.h"
 #include "stdio.h"
 #include <memory.h>
@@ -539,6 +540,8 @@ void sendReply(HookReply_t *hd, Measurements_t measurements)
 			readParameter = 0;
 			valueParameter = 0;
 		}
+
+		hd->checksum = encoding_calculateFletcher16Checksum((uint8_t *)hd, sizeof(HookReply_t) - sizeof(uint16_t));
 
 		// UART transmit
 		HAL_UART_Transmit_DMA(&huart1, (uint8_t *)hd, sizeof(HookReply_t));
