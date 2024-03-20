@@ -154,6 +154,9 @@ extern "C"
 	/**@brief Set external errors. */
 	void hook_setError(Errors_e number);
 
+	/**@brief Check safety line. */
+	void check_safety(MC_Handle_t *motor_device);
+
 	/*-----------------------------------------------------------------------------------------------------------------------------------*/
 
 #ifdef __cplusplus

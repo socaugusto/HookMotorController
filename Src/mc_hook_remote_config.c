@@ -219,6 +219,14 @@ void hook_setError(Errors_e number)
 	errorNo = number;
 }
 
+void check_safety(MC_Handle_t *motor_device)
+{
+	if (!HAL_GPIO_ReadPin(SAFETY_Port, SAFETY_Pin))
+	{
+		MotorStop(motor_device);
+	}
+}
+
 void hook_command_run(hook_remote_cmd_t *rcmd, MC_Handle_t *motor_device)
 {
 	if (rcmd->r_data[0] == 0xFE)

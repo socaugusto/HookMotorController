@@ -105,6 +105,8 @@ extern "C"
 #define UART_RX_GPIO_Port GPIOB
 #define END_STROKE_SENSOR_Pin GPIO_PIN_1
 #define END_STROKE_SENSOR_Port GPIOB
+#define SAFETY_Pin GPIO_PIN_14
+#define SAFETY_Port GPIOC
   /* USER CODE BEGIN Private defines */
 
   /* USER CODE END Private defines */

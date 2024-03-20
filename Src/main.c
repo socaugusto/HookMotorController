@@ -179,6 +179,10 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    // Safety tripped
+    while (!HAL_GPIO_ReadPin(SAFETY_Port, SAFETY_Pin))
+    {
+    }
     // Hook Main Loop Handle
     int8_t count = 0;
     if (idxProcess == idxReceive)
@@ -598,6 +602,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(OC_SEL_GPIO_Port, OC_SEL_Pin, GPIO_PIN_SET);
@@ -626,6 +631,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(END_STROKE_SENSOR_Port, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = SAFETY_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  HAL_GPIO_Init(SAFETY_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : OC_SEL_Pin */
   GPIO_InitStruct.Pin = OC_SEL_Pin;

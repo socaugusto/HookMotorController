@@ -47,6 +47,7 @@
 /* USER CODE BEGIN PRIVATE */
 extern void MotorUpdatePosition(MC_Handle_t *motor_device);
 extern void MotorPositionTargetTest(MC_Handle_t *motor_device);
+extern void check_safety(MC_Handle_t *motor_device);
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -233,6 +234,7 @@ void SysTick_Handler(void)
 
   /* USER CODE BEGIN SysTick_IRQn 1 */
   /* USER CODE END SysTick_IRQn 1 */
+  check_safety(&Motor_Device1);
   Motor_Device1.uw_tick_cnt++;
   MC_RunMotorControlTasks();
 
