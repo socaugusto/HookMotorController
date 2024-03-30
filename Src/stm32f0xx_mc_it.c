@@ -47,7 +47,6 @@
 /* USER CODE BEGIN PRIVATE */
 extern void MotorUpdatePosition(MC_Handle_t *motor_device);
 extern void MotorPositionTargetTest(MC_Handle_t *motor_device);
-extern void check_safety(MC_Handle_t *motor_device);
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -234,7 +233,6 @@ void SysTick_Handler(void)
 
   /* USER CODE BEGIN SysTick_IRQn 1 */
   /* USER CODE END SysTick_IRQn 1 */
-  check_safety(&Motor_Device1);
   Motor_Device1.uw_tick_cnt++;
   MC_RunMotorControlTasks();
 
@@ -251,13 +249,13 @@ void EXTI0_1_IRQHandler(void)
   if (LL_EXTI_ReadFlag_0_31(LL_EXTI_LINE_0))
   {
     LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_0);
-    UI_HandleStartStopButton_cb();
+    MotorStop(&Motor_Device1);
   }
 
   if (LL_EXTI_ReadFlag_0_31(LL_EXTI_LINE_1))
   {
     LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_1);
-    UI_HandleStartStopButton1_cb();
+    // No Operation for now
   }
 }
 

@@ -180,7 +180,7 @@ int main(void)
   while (1)
   {
     // Safety tripped
-    while (!HAL_GPIO_ReadPin(SAFETY_Port, SAFETY_Pin))
+    while (!HAL_GPIO_ReadPin(Start_Stop_GPIO_Port, Start_Stop_Pin))
     {
     }
     // Hook Main Loop Handle
@@ -618,7 +618,7 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin : Start_Stop_Pin */
   GPIO_InitStruct.Pin = Start_Stop_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(Start_Stop_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : Start_Stop1_Pin */
@@ -631,10 +631,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(END_STROKE_SENSOR_Port, &GPIO_InitStruct);
-
-  GPIO_InitStruct.Pin = SAFETY_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  HAL_GPIO_Init(SAFETY_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : OC_SEL_Pin */
   GPIO_InitStruct.Pin = OC_SEL_Pin;

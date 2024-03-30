@@ -63,7 +63,7 @@ extern "C"
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define Start_Stop_Pin GPIO_PIN_0
+#define Start_Stop_Pin GPIO_PIN_0 // Safety Pin
 #define Start_Stop_GPIO_Port GPIOF
 #define Start_Stop_EXTI_IRQn EXTI0_1_IRQn
 #define Start_Stop1_Pin GPIO_PIN_1
@@ -105,8 +105,6 @@ extern "C"
 #define UART_RX_GPIO_Port GPIOB
 #define END_STROKE_SENSOR_Pin GPIO_PIN_1
 #define END_STROKE_SENSOR_Port GPIOB
-#define SAFETY_Pin GPIO_PIN_14
-#define SAFETY_Port GPIOC
   /* USER CODE BEGIN Private defines */
 
   /* USER CODE END Private defines */
