@@ -63,12 +63,16 @@ typedef struct Measurements_t_
 /*Variables--------------------------------------------------------------------------------------------------------------------------*/
 extern UART_HandleTypeDef huart1;
 
-uint32_t tim3_TimerTick = 0;
-volatile bool TIM3_UpdateFlag_IsActive = false;
+uint32_t tim17_TimerTick = 0;
+volatile bool TIM17_UpdateFlag_IsActive = false;
 
 extern ADC_HandleTypeDef hadc;
 extern DMA_HandleTypeDef hdma_adc;
-uint16_t adc1_RawData[3];
+uint16_t adc1_RawData[ADC_CONV_LENGTH];
+#define CURRENT_FILTER_LENGTH 150
+static uint16_t currentFilter[CURRENT_FILTER_LENGTH];
+static uint32_t currentFilteridx = 0;
+
 volatile bool ADC1_ConvCpltFlag_IsActive = false;
 
 static uint8_t endOfStrokeSensor = 0;
@@ -443,17 +447,37 @@ Measurements_t getMeasurements(void)
 	{
 
 		// VrefInt formatting
-		uint16_t VrefInt_adcVal = adc1_RawData[2]; // Read adc raw data, ADC_CHANNEL_VREFINT.
+		uint32_t temp = adc1_RawData[2];
+		for (uint32_t i = (2 + 3); i < ADC_CONV_LENGTH; i += 3)
+		{
+			temp += adc1_RawData[i];
+			temp /= 2;
+		}
+		uint16_t VrefInt_adcVal = temp; // Read adc raw data, ADC_CHANNEL_VREFINT.
 
 		Vref = (float)((3.3 * VREFINT_CAL) / VrefInt_adcVal); // Internal ref. voltage conversion by reading vrefint calibration values from registers.
 
 		// Current sense formatting
-		uint16_t CurrentSense_adcVal = adc1_RawData[0]; // Read adc raw data, PA4.
+		temp = adc1_RawData[0];
+		for (uint32_t i = (0 + 3); i < ADC_CONV_LENGTH; i += 3)
+		{
+			temp += adc1_RawData[i];
+			temp /= 2;
+		}
+		currentFilter[currentFilteridx] = temp;
+		currentFilteridx = ((currentFilteridx + 1) % CURRENT_FILTER_LENGTH);
+
+		for (uint32_t i = 0; i < CURRENT_FILTER_LENGTH; ++i)
+		{
+			temp += currentFilter[i];
+			temp /= 2;
+		}
+		uint16_t CurrentSense_adcVal = temp; // Read adc raw data, PA4.
 
 		CurrentSense = (float)((Vref * CurrentSense_adcVal) / 4095); // Current conversion, Vadc by MCU.
 		CurrentSense *= (CURR_SENSE_SCALE_FACTOR * 1000);			 // Current calc., Vshunt=Ishunt*Rshunt, Vshunt*GAIN=Vadc, Is=Vadc/(Rs*GAIN).
 
-		if (CurrentSense > currentLimit && ++OvercurrentCounter > currentLimitMaxCount)
+		if (!currentLimitType && CurrentSense > currentLimit && ++OvercurrentCounter > currentLimitMaxCount)
 		{
 			Motor_Device1.status = MC_OVERCURRENT;
 			hook_setError(ERROR_OVERLOAD);
@@ -468,7 +492,13 @@ Measurements_t getMeasurements(void)
 		measurement.current = CurrentSense;
 
 		// VBus formatting
-		uint16_t VBus_adcVal = adc1_RawData[1]; // Read adc raw data, PA5.
+		temp = adc1_RawData[1];
+		for (uint32_t i = (1 + 3); i < ADC_CONV_LENGTH; i += 3)
+		{
+			temp += adc1_RawData[i];
+			temp /= 2;
+		}
+		uint16_t VBus_adcVal = temp; // Read adc raw data, PA5.
 
 		VBus = (float)((Vref * VBus_adcVal) / 4095); // Voltage conversion, Vadc by MCU.
 		VBus *= (VBUS_SCALE_FACTOR * 1000);			 // Voltage calc., VBUS voltage equals: VBus*VBUS_SCALE_FACTOR.
@@ -480,7 +510,7 @@ Measurements_t getMeasurements(void)
 
 		// Reset&Restart ADC, clear garbage old data in DMA buff..
 		HAL_ADC_Stop_DMA(&hadc);
-		HAL_ADC_Start_DMA(&hadc, (uint32_t *)adc1_RawData, 3);
+		HAL_ADC_Start_DMA(&hadc, (uint32_t *)adc1_RawData, ADC_CONV_LENGTH);
 	}
 
 	return measurement;
@@ -494,7 +524,7 @@ Measurements_t getMeasurements(void)
 void sendReply(HookReply_t *hd, Measurements_t measurements)
 {
 
-	if (tim3_TimerTick >= HOOK_MONITOR_REFRESH_TIMESTAMP)
+	if (tim17_TimerTick >= HOOK_MONITOR_REFRESH_TIMESTAMP)
 	{
 		hd->header = 0xFE;
 		hd->type = 0x01;
@@ -547,7 +577,7 @@ void sendReply(HookReply_t *hd, Measurements_t measurements)
 		HAL_UART_Transmit_DMA(&huart1, (uint8_t *)hd, sizeof(HookReply_t));
 
 		// Clear timer tick
-		tim3_TimerTick = 0;
+		tim17_TimerTick = 0;
 	}
 }
 
@@ -571,7 +601,7 @@ void hook_monitoring_handle(HookReply_t *hd, MC_Handle_t *motor_device)
 		endOfStrokeSensor = 0;
 	}
 
-	if (TIM3_UpdateFlag_IsActive)
+	if (TIM17_UpdateFlag_IsActive)
 	{
 		// ADC handle
 		Measurements_t values = getMeasurements();
@@ -580,7 +610,7 @@ void hook_monitoring_handle(HookReply_t *hd, MC_Handle_t *motor_device)
 		sendReply(hd, values);
 
 		// Clear flag
-		TIM3_UpdateFlag_IsActive = false;
+		TIM17_UpdateFlag_IsActive = false;
 	}
 }
 

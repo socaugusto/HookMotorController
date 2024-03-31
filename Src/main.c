@@ -48,6 +48,7 @@ DMA_HandleTypeDef hdma_adc;
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim17;
 
 UART_HandleTypeDef huart1;
 DMA_HandleTypeDef hdma_usart1_rx;
@@ -56,10 +57,10 @@ DMA_HandleTypeDef hdma_usart1_tx;
 /* USER CODE BEGIN PV */
 extern MC_Handle_t Motor_Device1;
 
-extern uint32_t tim3_TimerTick;
-extern volatile bool TIM3_UpdateFlag_IsActive;
+extern uint32_t tim17_TimerTick;
+extern volatile bool TIM17_UpdateFlag_IsActive;
 
-extern uint16_t adc1_RawData[3];
+extern uint16_t adc1_RawData[ADC_CONV_LENGTH];
 extern volatile bool ADC1_ConvCpltFlag_IsActive;
 
 hook_remote_cmd_t remoteCommand[8]; // global remote command data structure variable
@@ -78,6 +79,7 @@ static void MX_ADC_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_TIM3_Init(void);
+static void MX_TIM17_Init(void);
 static void MX_NVIC_Init(void);
 /* USER CODE BEGIN PFP */
 
@@ -94,10 +96,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   if (htim->Instance == TIM3)
   {
-    // GPIOB->ODR ^= GPIO_PIN_8;
-    TIM3_UpdateFlag_IsActive = true;
-
-    tim3_TimerTick++;
+    //  GPIOB->ODR ^= GPIO_PIN_8;
+  }
+  else if (htim->Instance == TIM17)
+  {
+    TIM17_UpdateFlag_IsActive = true;
+    tim17_TimerTick++;
   }
 }
 
@@ -157,13 +161,16 @@ int main(void)
   MX_USART1_UART_Init();
   MX_MotorControl_Init();
   MX_TIM3_Init();
+  MX_TIM17_Init();
 
   /* Initialize interrupts */
   MX_NVIC_Init();
   /* USER CODE BEGIN 2 */
+  HAL_ADCEx_Calibration_Start(&hadc);
 
-  HAL_ADC_Start_DMA(&hadc, (uint32_t *)adc1_RawData, 3);
+  HAL_ADC_Start_DMA(&hadc, (uint32_t *)adc1_RawData, ADC_CONV_LENGTH);
 
+  HAL_TIM_Base_Start_IT(&htim17);
   HAL_TIM_Base_Start_IT(&htim3);
 
   HAL_UART_Receive_DMA(&huart1, remoteCommand[idxReceive].r_data, sizeof(remoteCommand[idxReceive].r_data));
@@ -318,7 +325,7 @@ static void MX_ADC_Init(void)
    */
   sConfig.Channel = ADC_CHANNEL_4;
   sConfig.Rank = ADC_RANK_CHANNEL_NUMBER;
-  sConfig.SamplingTime = ADC_SAMPLETIME_28CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_7CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -511,7 +518,7 @@ static void MX_TIM3_Init(void)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 0;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 47999;
+  htim3.Init.Period = 959;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
@@ -532,6 +539,37 @@ static void MX_TIM3_Init(void)
   /* USER CODE BEGIN TIM3_Init 2 */
 
   /* USER CODE END TIM3_Init 2 */
+}
+
+/**
+ * @brief TIM17 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_TIM17_Init(void)
+{
+
+  /* USER CODE BEGIN TIM17_Init 0 */
+
+  /* USER CODE END TIM17_Init 0 */
+
+  /* USER CODE BEGIN TIM17_Init 1 */
+
+  /* USER CODE END TIM17_Init 1 */
+  htim17.Instance = TIM17;
+  htim17.Init.Prescaler = 0;
+  htim17.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim17.Init.Period = 47999;
+  htim17.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim17.Init.RepetitionCounter = 0;
+  htim17.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim17) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM17_Init 2 */
+
+  /* USER CODE END TIM17_Init 2 */
 }
 
 /**

@@ -38,6 +38,8 @@ extern "C"
 #define REMOTE_BUFF_SIZE 8
 #define HOOK_BUFF_SIZE 12
 
+#define ADC_CONV_LENGTH 120
+
 // Hook Position
 #define HOOK_MECH_FULL_POS_VAL ((uint32_t)13200)
 #define HOOK_MECH_HALF_POS_VAL ((uint32_t)5000) // (HOOK_MECH_FULL_POS_VAL/2))

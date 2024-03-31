@@ -45,6 +45,11 @@ target_compile_options(Hook_Motor
         #-Wmissing-declarations
 )
 
+# target_compile_definitions(Hook_Motor
+#     PRIVATE
+#         -DMC_HAL_IS_USED
+# )
+
 target_include_directories(Hook_Motor
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/inc/
