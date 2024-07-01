@@ -49,6 +49,7 @@ typedef enum Parameters_e_
 	PARAMETER_CURRENT_LIMIT_TYPE,
 	PARAMETER_CURRENT_LIMIT_ADC_FILTER_VALUE,
 	PARAMETER_CURRENT_PIN_CONFIG,
+	PARAMETER_IGNORE_SENSOR,
 
 } Parameters_e;
 
@@ -75,6 +76,7 @@ static uint32_t currentFilteridx = 0;
 
 volatile bool ADC1_ConvCpltFlag_IsActive = false;
 
+static uint8_t ignoreSensor = 0;
 static uint8_t endOfStrokeSensor = 0;
 static int32_t hookPosition = INT16_MAX;
 static uint16_t hookTarget = 0;
@@ -87,13 +89,13 @@ extern uint16_t pidKd;
 extern uint16_t pidScaling;
 extern uint16_t pidOutMin;
 extern uint16_t pidOutMax;
-static uint16_t currentLimit = 5000;
+static uint16_t currentLimit = 10000;
 static uint16_t currentLimitMaxCount = 3;
 static uint16_t OvercurrentCounter = 0;
 static Measurements_t measurement;
 static uint32_t readyForLoading = 0;
 static uint32_t loadingData = 0;
-static bool currentLimitType = true;
+static bool currentLimitType = false;
 static Parameters_e readParameter;
 static int32_t valueParameter;
 
@@ -338,6 +340,10 @@ void hook_command_run(hook_remote_cmd_t *rcmd, MC_Handle_t *motor_device)
 				}
 
 				break;
+			case PARAMETER_IGNORE_SENSOR:
+				ignoreSensor = cmd->Parameter2;
+
+				break;
 			case PARAMETER_NONE:
 			default:
 				errorNo = ERROR_INVALID_PARAMETER;
@@ -409,6 +415,11 @@ void hook_command_run(hook_remote_cmd_t *rcmd, MC_Handle_t *motor_device)
 				{
 					valueParameter |= 0x02;
 				}
+
+				break;
+			case PARAMETER_IGNORE_SENSOR:
+				readParameter = PARAMETER_IGNORE_SENSOR;
+				valueParameter = ignoreSensor;
 
 				break;
 			case PARAMETER_NONE:
@@ -590,7 +601,7 @@ void hook_monitoring_handle(HookReply_t *hd, MC_Handle_t *motor_device)
 {
 	if (HAL_GPIO_ReadPin(END_STROKE_SENSOR_Port, END_STROKE_SENSOR_Pin) == GPIO_PIN_RESET)
 	{
-		if (!endOfStrokeSensor)
+		if (!endOfStrokeSensor && !ignoreSensor)
 		{
 			MotorStop(motor_device);
 		}
