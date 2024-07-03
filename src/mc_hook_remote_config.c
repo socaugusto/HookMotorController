@@ -494,6 +494,8 @@ Measurements_t getMeasurements(void)
 			hook_setError(ERROR_OVERLOAD);
 			MC_Core_Error(&Motor_Device1);
 			OvercurrentCounter = 0;
+
+			memset(currentFilter, 0x00, sizeof(currentFilter));
 		}
 		else if (CurrentSense < 1)
 		{
