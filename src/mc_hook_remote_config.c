@@ -95,7 +95,7 @@ static uint16_t OvercurrentCounter = 0;
 static Measurements_t measurement;
 static uint32_t readyForLoading = 0;
 static uint32_t loadingData = 0;
-static bool currentLimitType = false;
+static bool currentLimitType = true;
 static Parameters_e readParameter;
 static int32_t valueParameter;
 
@@ -312,8 +312,11 @@ void hook_command_run(hook_remote_cmd_t *rcmd, MC_Handle_t *motor_device)
 
 				break;
 			case PARAMETER_CURRENT_LIMIT_TYPE:
-				currentLimitType = (uint16_t)cmd->Parameter2;
-				MX_TIM1_Init(currentLimitType);
+				if (currentLimitType != (uint16_t)cmd->Parameter2)
+				{
+					currentLimitType = (uint16_t)cmd->Parameter2;
+					MX_TIM1_Init(currentLimitType);
+				}
 
 				break;
 			case PARAMETER_CURRENT_LIMIT_ADC_FILTER_VALUE:
@@ -391,7 +394,7 @@ void hook_command_run(hook_remote_cmd_t *rcmd, MC_Handle_t *motor_device)
 
 				break;
 			case PARAMETER_CURRENT_LIMIT_TYPE:
-				readParameter = PARAMETER_CURRENT_LIMIT_ADC_FILTER_VALUE;
+				readParameter = PARAMETER_CURRENT_LIMIT_TYPE;
 				valueParameter = currentLimitType;
 
 				break;
