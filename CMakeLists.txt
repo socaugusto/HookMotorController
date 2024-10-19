@@ -86,7 +86,7 @@ target_link_libraries(Hook_Motor
 set_target_properties(Hook_Motor PROPERTIES SUFFIX ".elf")
 
 add_custom_target(Hook_Motor_Flash
-    COMMAND pushd ${CMAKE_BINARY_DIR}
+    #COMMAND pushd ${CMAKE_BINARY_DIR}
     COMMAND openocd -f interface/stlink.cfg -f target/stm32f0x.cfg -c "program Hook_Motor.elf verify reset exit"
     DEPENDS Hook_Motor
 )

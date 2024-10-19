@@ -306,50 +306,12 @@ dataType can be Synchronous (answer to Master packet), Asynchronous or a CTL pac
 
 uint8_t ASPEP_TXframeProcess (ASPEP_Handle_t *pHandle, uint8_t dataType, void *txBuffer, uint16_t bufferLength)
 {
-  uint8_t result = ASPEP_OK;
-  ASPEP_ComputeHeaderCRC  ((uint32_t*)txBuffer); /* Insert CRC header in the packet to send */
-  __disable_irq(); /*TODO: Disable High frequency task is enough */
-  if (pHandle->lockBuffer == NULL ) /* Communication Ip free to send data*/
-  {
-    if (dataType == MCTL_SYNC )
-    {
-      pHandle->syncBuffer.state = readLock;
-      pHandle->lockBuffer = (void *) &pHandle->syncBuffer;
-    }
-    else
-    {
-      pHandle->ctrlBuffer.state = readLock;
-      pHandle->lockBuffer = (void *) &pHandle->ctrlBuffer;
-    }
-    /* Enable HF task It */
-    __enable_irq(); /*TODO: Enable High frequency task is enough */
-    pHandle->fASPEP_send  (pHandle ->HWIp, txBuffer, bufferLength);
-  }
-  else /* HW resource busy, saving packet to sent it once resource will be freed*/
-  {
-    __enable_irq(); /*TODO: Enable High frequency task is enough */
-    /* Lock buffer can be freed here */
-    if (dataType == MCTL_SYNC )
-    {
-      if ( pHandle -> syncBuffer.state != writeLock ) {
-        result = ASPEP_BUFFER_ERROR;
-      }
-      else {
-        pHandle -> syncBuffer.state = pending;
-        pHandle -> syncBuffer.length = bufferLength;
-      }
-    }
-    else  if ( dataType == ASPEP_CTRL )
-    {
-     if ( pHandle -> ctrlBuffer.state != free ) {
-        result = ASPEP_BUFFER_ERROR;
-      }
-      else {
-        pHandle -> ctrlBuffer.state = pending;
-      }
-    }
-  }
-return result;
+  (void)(pHandle);
+  (void)(dataType);
+  (void)(txBuffer);
+  (void)(bufferLength);
+
+  return 0;
 }
 
 /* ASPEP_HWDataTransmittedIT is called as soon as previous packet transfer is completed */
@@ -358,155 +320,14 @@ return result;
 
 void ASPEP_HWDataTransmittedIT (ASPEP_Handle_t *pHandle )
 {
-  /* First free previous readLock buffer */
-  if (pHandle->ctrlBuffer.state == readLock)
-  {
-    pHandle -> ctrlBuffer.state = free;
-  }
-  else /* if previous buffer was not ASPEP_CTRL, then the buffer locked is a MCTL_Buff_t */
-  {
-    MCTL_Buff_t * tempBuff = (MCTL_Buff_t *) pHandle -> lockBuffer;
-    tempBuff->state = free;
-  }
-  if ( pHandle -> syncBuffer.state == pending )
-  {
-    pHandle->lockBuffer = (void *) &pHandle->syncBuffer;
-    pHandle->fASPEP_send (pHandle->HWIp, pHandle->syncBuffer.buffer, pHandle->syncBuffer.length);
-    pHandle ->syncBuffer.state = readLock;
-  }
-  /* Second prepare transfer of pending buffer */
-  else if ( pHandle -> ctrlBuffer.state == pending )
-  {
-    pHandle->lockBuffer = (void *)(&pHandle ->ctrlBuffer);
-    pHandle->fASPEP_send (pHandle ->HWIp, pHandle->ctrlBuffer.buffer, ASPEP_CTRL_SIZE);
-    pHandle -> ctrlBuffer.state = readLock;
-  }
-  else
-  {     pHandle->lockBuffer = NULL;
-  }
+  (void)(pHandle);
 }
 
 uint8_t* ASPEP_RXframeProcess (MCTL_Handle_t *pSupHandle, uint16_t *packetLength)
 {
-  uint8_t* result = NULL;
-  ASPEP_Handle_t * pHandle = (ASPEP_Handle_t *) pSupHandle;
-  bool validCRCData = true;
-  ASPEP_Capabilities_def MasterCapabilities;
-  uint16_t packetNumber;
-  uint32_t packetHeader = *((uint32_t *)pHandle->rxHeader);
-
-  *packetLength = 0;
-  if (pHandle->NewPacketAvailable)
-  {
-    pHandle -> NewPacketAvailable = false; /* Consumes new packet*/
-    switch (pHandle->ASPEP_State)
-    {
-    case ASPEP_IDLE:
-      if (pHandle->rxPacketType == beacon )
-      {
-        if (ASPEP_CheckBeacon(pHandle,&MasterCapabilities) == false)
-        {
-          // pHandle->Capabilities.RX_maxSize =  MIN(pHandle->Capabilities.RX_maxSize,  MasterCapabilities.RX_maxSize);
-          pHandle->Capabilities.DATA_CRC = MIN(pHandle->Capabilities.DATA_CRC ,MasterCapabilities.DATA_CRC);
-          pHandle->Capabilities.TXS_maxSize = MIN(pHandle->Capabilities.TXS_maxSize, MasterCapabilities.TXS_maxSize);
-          pHandle->Capabilities.TXA_maxSize = MIN(pHandle->Capabilities.TXA_maxSize, MasterCapabilities.TXA_maxSize);
-        }
-        else
-        { /* Master capabilities match Salve capabilities.*/
-          pSupHandle->txSyncMaxPayload = (pHandle->Capabilities.TXS_maxSize+1)*32;
-          pSupHandle->txAsyncMaxPayload = (pHandle->Capabilities.TXA_maxSize)*64;
-          pHandle->maxRXPayload = (pHandle->Capabilities.RX_maxSize+1)*32;
-          pHandle->ASPEP_State = ASPEP_CONFIGURED;
-        }
-        /* Beacon Packet must be answered*/
-          ASPEP_sendBeacon (pHandle, &pHandle->Capabilities);
-      }
-      else if (pHandle->rxPacketType == ping)
-      { /* In Listening for master slave, */
-        packetNumber = (packetHeader&0x0FFFF000 ) >> 12;
-        ASPEP_sendPing (pHandle,ASPEP_PING_RESET,packetNumber);
-      }
-      else
-      {
-      }
-    break;
-    case ASPEP_CONFIGURED:
-      if (pHandle->rxPacketType == beacon )
-      {
-        if (ASPEP_CheckBeacon(pHandle,&MasterCapabilities) == false)
-        {
-          pHandle->ASPEP_State = ASPEP_IDLE;
-        }
-        else
-        { /* Nothing to do */
-        }
-        ASPEP_sendBeacon (pHandle, &pHandle->Capabilities);
-      }
-      else if (pHandle->rxPacketType == ping)
-      { /* In Listening for master slave, */
-        packetNumber = (packetHeader&0x0FFFF000 ) >> 12;
-        ASPEP_sendPing (pHandle,ASPEP_PING_CFG,packetNumber);
-        pHandle->ASPEP_State = ASPEP_CONNECTED;
-      }
-    break;
-    case ASPEP_CONNECTED:
-      if (pHandle->rxPacketType == beacon )
-      {
-        if (ASPEP_CheckBeacon(pHandle,&MasterCapabilities) == false)
-        {
-          pHandle->ASPEP_State = ASPEP_IDLE;
-        }
-        else
-        {
-          pHandle->ASPEP_State = ASPEP_CONFIGURED;
-        }
-        ASPEP_sendBeacon (pHandle, &pHandle->Capabilities);
-      }
-      else if (pHandle->rxPacketType == ping )
-      {
-        packetNumber = pHandle->rxHeader[1];
-        ASPEP_sendPing (pHandle,ASPEP_PING_CFG,packetNumber);
-      }
-      else if (pHandle->rxPacketType == data )
-      {
-        if (validCRCData)
-        { pHandle -> syncPacketCount++; /* this counter is incremented at each valid data packet received from the master */
-          pSupHandle ->MCP_PacketAvailable = true; /* Will be consumed in ASPEP_sendPacket */
-          *packetLength = pHandle->rxLength;
-          result = pHandle->rxBuffer;
-        }
-        else
-        {
-          ASPEP_sendNack (pHandle, ASPEP_BAD_CRC_DATA);
-        }
-      }
-      else {
-        /* This condition is not reachable because already filtred by NewPacketAvailable */
-        /* ASPEP_sendNack (pHandle, ASPEP_BAD_PACKET_TYPE); */
-      }
-
-      break;
-    }
-    /* The valid received packet is now safely consumes, we are ready to receive a new packet*/
-    pHandle->fASPEP_receive(pHandle->HWIp, pHandle->rxHeader , ASPEP_HEADER_SIZE );
-  }
-  else if (pHandle->badPacketFlag > ASPEP_OK )
-  {
-    ASPEP_sendNack (pHandle, pHandle->badPacketFlag);
-    /* ASPEP_RXframeProcess can be called before reception of another packet*/
-    pHandle->badPacketFlag = ASPEP_OK;
-    /* As we received a packet with a bad header, we need to be sure that the HW IP is well Synchronised*/
-    /* DMA will be configured to receive next packet as soon as HW IP RX line is free to receive new packet */
-    /* It is important to note that we will detect only the NEXT free line transition, it means the next packet will be lost*/
-    /* but the end of this lost packet will generate the IDLE interrupt */
-    /* the IDLE interrupt will call ASPEP_HWDMAReset (in charge of the IP_aspep driver to call it at the appropriate time)*/
-    pHandle->fASPEP_HWSync (pHandle->HWIp);
-  }
-  else
-  {
-    /* Nothing to do, no response is due to the master */
-  }
-  return result;
+  (void)(pSupHandle);
+  (void)(packetLength);
+  return 0;
 }
 
 /* This function is called once DMA has transfered the configure number of byte*/
