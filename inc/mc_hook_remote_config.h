@@ -9,10 +9,10 @@
 #define _MC_HOOK_REMOTE_CONFIG_H
 
 /*Includes---------------------------------------------------------------------------------------------------------------------------*/
-#include "stdint.h"
+#include "6step_service_f0xx.h"
 #include "mc_config.h"
 #include "mc_interface.h"
-#include "6step_service_f0xx.h"
+#include "stdint.h"
 
 /*-----------------------------------------------------------------------------------------------------------------------------------*/
 
@@ -21,12 +21,13 @@ extern "C"
 {
 #endif
 
-/*Definitions, enums, structures-----------------------------------------------------------------------------------------------------*/
+/*Definitions, enums,
+ * structures-----------------------------------------------------------------------------------------------------*/
 // ADC
 #define VREFINT_CAL *((uint16_t *)(0x1FFFF7BAU)) // Read VREFINT, internal voltage ref. cal. value stored in the memory.
 
 #define VBUS_SCALE_FACTOR 19.17 // VBUS Feedback onboard voltage divider scale factor.
-#define VBUS_ERROR 1.035		// VBUS error coefficient.
+#define VBUS_ERROR 1.035        // VBUS error coefficient.
 
 #define CURR_SENSE_RSHUNT 0.01 // Current sense resistor R=0.01 Ohm.
 #define CURR_SENSE_GAIN 3.13   // Current sense amplification overall Op-amp gain=3.125, onboard.
@@ -40,13 +41,20 @@ extern "C"
 
 #define ADC_CONV_LENGTH 120
 
+// Motor Direction Signal
+#define MOTOR_OPEN_DIRECTION -1
+#define MOTOR_CLOSE_DIRECTION 1
+
 // Hook Position
-#define HOOK_MECH_FULL_POS_VAL ((uint32_t)13200)
-#define HOOK_MECH_HALF_POS_VAL ((uint32_t)5000) // (HOOK_MECH_FULL_POS_VAL/2))
-#define HOOK_MECH_HOME_POS_VAL ((uint32_t)0)
+#define HOOK_MECH_OPEN_POS_VAL (18293)
+#define HOOK_MECH_MID_POS_VAL (13720)
+#define HOOK_MECH_CLOSE_POS_VAL (1)
+#define HOOK_MECH_HOME_POS_VAL (0)
 
 // Hook Speed
-#define HOOK_HOMING_SPEED_VAL ((uint32_t)750)
+#define HOOK_HOMING_SPEED_VAL ((uint32_t)1500)
+#define HOOK_CLOSING_SPEED_VAL ((uint32_t)4000)
+#define HOOK_OPENING_SPEED_VAL ((uint32_t)2000)
 
 // Headers
 #define HDR '$'
@@ -55,109 +63,111 @@ extern "C"
 #define CR '\r'
 #define LF '\n'
 
-	/**@brief enum for motor direction status. */
-	typedef enum _motor_direction_stat_t
-	{
+    /**@brief enum for motor direction status. */
+    typedef enum _motor_direction_stat_t
+    {
 
-		CW = 0x00,
-		CCW = 0x01
+        CW = 0x00,
+        CCW = 0x01
 
-	} motor_direction_stat_t;
+    } motor_direction_stat_t;
 
 #pragma pack(1)
-	typedef struct RemoteCommand_t_
-	{
-		uint8_t operation;
-		int16_t Parameter1;
-		int16_t Parameter2;
-		int16_t Parameter3;
+    typedef struct RemoteCommand_t_
+    {
+        uint8_t operation;
+        int16_t Parameter1;
+        int16_t Parameter2;
+        int16_t Parameter3;
 
-	} RemoteCommand_t;
+    } RemoteCommand_t;
 
 /**@brief structure for remote command data. */
 #pragma pack(1)
-	typedef struct _hook_remote_cmd_t
-	{
+    typedef struct _hook_remote_cmd_t
+    {
 
-		uint8_t r_data[REMOTE_BUFF_SIZE];
-		uint8_t r_header[2];
-		uint8_t open_pos;
-		uint8_t mid_pos;
-		uint8_t close_pos;
-		uint8_t cr, lf;
-	} hook_remote_cmd_t;
-
-#pragma pack(1)
-	typedef struct stdReply_t_
-	{
-		uint16_t voltage; // mV
-		int16_t current;  // mA
-		uint16_t position;
-		uint8_t error;
-		struct
-		{
-			uint8_t sequenceNumber : 3;
-			uint8_t dataType : 1;
-			uint8_t dataNumber : 4;
-		} command;
-		uint8_t dataValues[4];
-
-	} stdReply_t;
+        uint8_t r_data[REMOTE_BUFF_SIZE];
+        uint8_t r_header[2];
+        uint8_t open_pos;
+        uint8_t mid_pos;
+        uint8_t close_pos;
+        uint8_t cr, lf;
+    } hook_remote_cmd_t;
 
 #pragma pack(1)
-	typedef struct HookReply_t_
-	{
-		uint8_t header;
-		uint8_t type;
-		stdReply_t data;
-		uint16_t checksum;
-	} HookReply_t;
+    typedef struct stdReply_t_
+    {
+        uint16_t voltage; // mV
+        int16_t current;  // mA
+        uint16_t position;
+        uint8_t error;
+        struct
+        {
+            uint8_t sequenceNumber : 3;
+            uint8_t dataType : 1;
+            uint8_t dataNumber : 4;
+        } command;
+        uint8_t dataValues[4];
 
-	typedef enum Errors_e_
-	{
-		ERROR_NONE,
-		ERROR_INVALID_PARAMETER,
-		ERROR_FAILED_TO_START_MOTOR,
-		ERROR_OVERLOAD,
-		ERROR_COMMAND_TIMEOUT,
-		ERROR_INVALID_SEQUENCE_NUMBER,
-		ERROR_ESTOP,
-		ERROR_PROTECTION_ACTIVATED,
+    } stdReply_t;
 
-	} Errors_e;
+#pragma pack(1)
+    typedef struct HookReply_t_
+    {
+        uint8_t header;
+        uint8_t type;
+        stdReply_t data;
+        uint16_t checksum;
+    } HookReply_t;
 
-	/*-----------------------------------------------------------------------------------------------------------------------------------*/
+    typedef enum Errors_e_
+    {
+        ERROR_NONE,
+        ERROR_INVALID_PARAMETER,
+        ERROR_FAILED_TO_START_MOTOR,
+        ERROR_OVERLOAD,
+        ERROR_COMMAND_TIMEOUT,
+        ERROR_INVALID_SEQUENCE_NUMBER,
+        ERROR_ESTOP,
+        ERROR_PROTECTION_ACTIVATED,
 
-	/*Variables--------------------------------------------------------------------------------------------------------------------------*/
+    } Errors_e;
 
-	/*-----------------------------------------------------------------------------------------------------------------------------------*/
+    /*-----------------------------------------------------------------------------------------------------------------------------------*/
 
-	/*Private Functions------------------------------------------------------------------------------------------------------------------*/
-	/**@brief Function prototype for reading remote data. */
-	void hook_command_run(hook_remote_cmd_t *rcmd, MC_Handle_t *motor_device);
+    /*Variables--------------------------------------------------------------------------------------------------------------------------*/
 
-	/**@brief Function prototype for motor device start. */
-	void MotorStart(MC_Handle_t *motor_device);
+    /*-----------------------------------------------------------------------------------------------------------------------------------*/
 
-	/**@brief Function prototype for motor device stop and reset. */
-	void MotorStop(MC_Handle_t *motor_device);
+    /*Private
+     * Functions------------------------------------------------------------------------------------------------------------------*/
+    /**@brief Function prototype for reading remote data. */
+    void hook_command_run(hook_remote_cmd_t *rcmd, MC_Handle_t *motor_device);
 
-	/**@brief Function prototype for motor device start/stop. */
-	void MotorStartStop(MC_Handle_t *motor_device, motor_direction_stat_t motor_direction);
+    /**@brief Function prototype for motor device start. */
+    void MotorStart(MC_Handle_t *motor_device);
 
-	/**@brief Function prototype for setting motor direction. */
-	void MotorSetDirection(MC_Handle_t *motor_device, motor_direction_stat_t motor_direction);
+    /**@brief Function prototype for motor device stop and reset. */
+    void MotorStop(MC_Handle_t *motor_device);
 
-	/**@brief Function prototype for setting motor speed. */
-	void MotorSetSpeed(MC_Handle_t *motor_device, uint32_t motor_speed);
+    /**@brief Function prototype for motor device start/stop. */
+    void MotorStartStop(MC_Handle_t *motor_device, motor_direction_stat_t motor_direction);
 
-	/**@brief Function prototype for handling hook data to remote side as to obtainning and sending batt., load values and led position feedbacks. */
-	void hook_monitoring_handle(HookReply_t *hd, MC_Handle_t *motor_device);
+    /**@brief Function prototype for setting motor direction. */
+    void MotorSetDirection(MC_Handle_t *motor_device, motor_direction_stat_t motor_direction);
 
-	/**@brief Set external errors. */
-	void hook_setError(Errors_e number);
+    /**@brief Function prototype for setting motor speed. */
+    void MotorSetSpeed(MC_Handle_t *motor_device, uint32_t motor_speed);
 
-	/*-----------------------------------------------------------------------------------------------------------------------------------*/
+    /**@brief Function prototype for handling hook data to remote side as to obtainning and sending batt., load values
+     * and led position feedbacks. */
+    void hook_monitoring_handle(HookReply_t *hd, MC_Handle_t *motor_device);
+
+    /**@brief Set external errors. */
+    void hook_setError(Errors_e number);
+
+    /*-----------------------------------------------------------------------------------------------------------------------------------*/
 
 #ifdef __cplusplus
 }
@@ -165,4 +175,5 @@ extern "C"
 
 #endif
 
-/*******************************************************END OF FILE*******************************************************************/
+/*******************************************************END OF
+ * FILE*******************************************************************/
