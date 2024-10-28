@@ -458,7 +458,6 @@ Measurements_t getMeasurements(void)
 {
     float Vref = 0;
     float CurrentSense = 0;
-    float VBus = 0;
 
     if (ADC1_ConvCpltFlag_IsActive)
     {
@@ -511,20 +510,6 @@ Measurements_t getMeasurements(void)
         }
 
         measurement.current = CurrentSense;
-
-        // VBus formatting
-        temp = adc1_RawData[1];
-        for (uint32_t i = (1 + 3); i < ADC_CONV_LENGTH; i += 3)
-        {
-            temp += adc1_RawData[i];
-            temp /= 2;
-        }
-        uint16_t VBus_adcVal = temp; // Read adc raw data, PA5.
-
-        VBus = (float)((Vref * VBus_adcVal) / 4095); // Voltage conversion, Vadc by MCU.
-        VBus *= (VBUS_SCALE_FACTOR * 1000);          // Voltage calc., VBUS voltage equals: VBus*VBUS_SCALE_FACTOR.
-
-        measurement.voltage = VBus;
 
         // Clear flag
         ADC1_ConvCpltFlag_IsActive = false;
