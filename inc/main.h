@@ -29,46 +29,56 @@ extern "C"
 #endif
 
 /* Includes ------------------------------------------------------------------*/
-#include "stm32f0xx_hal.h"
 #include "motorcontrol.h"
+#include "stm32f0xx_hal.h"
 
-  /* Private includes ----------------------------------------------------------*/
-  /* USER CODE BEGIN Includes */
+    /* Private includes ----------------------------------------------------------*/
+    /* USER CODE BEGIN Includes */
 
-  /* USER CODE END Includes */
+    /* USER CODE END Includes */
 
-  /* Exported types ------------------------------------------------------------*/
-  /* USER CODE BEGIN ET */
+    /* Exported types ------------------------------------------------------------*/
+    /* USER CODE BEGIN ET */
 
-  /* USER CODE END ET */
+    /* USER CODE END ET */
 
-  /* Exported constants --------------------------------------------------------*/
-  /* USER CODE BEGIN EC */
+    /* Exported constants --------------------------------------------------------*/
+    /* USER CODE BEGIN EC */
 
-  /* USER CODE END EC */
+    /* USER CODE END EC */
 
-  /* Exported macro ------------------------------------------------------------*/
-  /* USER CODE BEGIN EM */
+    /* Exported macro ------------------------------------------------------------*/
+    /* USER CODE BEGIN EM */
 
-  /* USER CODE END EM */
+    /* USER CODE END EM */
 
-  void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
-  void MX_TIM1_Init(bool enableBreak);
+    void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
+    void MX_TIM1_Init(bool enableBreak);
 
-  /* Exported functions prototypes ---------------------------------------------*/
-  void Error_Handler(void);
+    /* Exported functions prototypes ---------------------------------------------*/
+    void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
 
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define Start_Stop_Pin GPIO_PIN_0 // Safety Pin
-#define Start_Stop_GPIO_Port GPIOF
-#define Start_Stop_EXTI_IRQn EXTI0_1_IRQn
-#define Start_Stop1_Pin GPIO_PIN_1
-#define Start_Stop1_GPIO_Port GPIOF
-#define Start_Stop1_EXTI_IRQn EXTI0_1_IRQn
+#define CLOSE_CMD_Pin GPIO_PIN_0
+#define CLOSE_CMD_GPIO_Port GPIOF
+#define MID_CMD_Pin GPIO_PIN_1
+#define MID_CMD_GPIO_Port GPIOF
+#define OPEN_CMD_Pin GPIO_PIN_5
+#define OPEN_CMD_GPIO_Port GPIOA
+
+#define CLOSE_OUT_Pin GPIO_PIN_8
+#define CLOSE_OUT_GPIO_Port GPIOB
+#define MID_OUT_Pin GPIO_PIN_9
+#define MID_OUT_GPIO_Port GPIOB
+#define OPEN_OUT_Pin GPIO_PIN_14
+#define OPEN_OUT_GPIO_Port GPIOC
+#define FAULT_OUT_Pin GPIO_PIN_15
+#define FAULT_OUT_GPIO_Port GPIOC
+
 #define M1_HALL_H1_Pin GPIO_PIN_0
 #define M1_HALL_H1_GPIO_Port GPIOA
 #define M1_HALL_H2_Pin GPIO_PIN_1
@@ -105,9 +115,9 @@ extern "C"
 #define UART_RX_GPIO_Port GPIOB
 #define END_STROKE_SENSOR_Pin GPIO_PIN_1
 #define END_STROKE_SENSOR_Port GPIOB
-  /* USER CODE BEGIN Private defines */
+    /* USER CODE BEGIN Private defines */
 
-  /* USER CODE END Private defines */
+    /* USER CODE END Private defines */
 
 #ifdef __cplusplus
 }
