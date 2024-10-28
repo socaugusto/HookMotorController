@@ -52,9 +52,11 @@ extern "C"
 #define HOOK_MECH_HOME_POS_VAL (0)
 
 // Hook Speed
-#define HOOK_HOMING_SPEED_VAL ((uint32_t)1500)
-#define HOOK_CLOSING_SPEED_VAL ((uint32_t)4000)
-#define HOOK_OPENING_SPEED_VAL ((uint32_t)2000)
+#define HOOK_HOMING_SPEED_VAL ((int16_t)1500)
+#define HOOK_CLOSING_SPEED_VAL ((int16_t)4000)
+#define HOOK_OPENING_SPEED_VAL ((int16_t)2000)
+
+#define HOOK_CURRENT_LIMIT_OPEN 11000
 
 // Headers
 #define HDR '$'
@@ -143,7 +145,7 @@ extern "C"
     /*Private
      * Functions------------------------------------------------------------------------------------------------------------------*/
     /**@brief Function prototype for reading remote data. */
-    void hook_command_run(hook_remote_cmd_t *rcmd, MC_Handle_t *motor_device);
+    void hook_command_run(RemoteCommand_t *cmd, MC_Handle_t *motor_device);
 
     /**@brief Function prototype for motor device start. */
     void MotorStart(MC_Handle_t *motor_device);
@@ -162,10 +164,12 @@ extern "C"
 
     /**@brief Function prototype for handling hook data to remote side as to obtainning and sending batt., load values
      * and led position feedbacks. */
-    void hook_monitoring_handle(HookReply_t *hd, MC_Handle_t *motor_device);
+    void hook_monitoring_handle(MC_Handle_t *motor_device);
 
     /**@brief Set external errors. */
     void hook_setError(Errors_e number);
+
+    RemoteCommand_t *hook_get_commands(MC_Handle_t *motor_device);
 
     /*-----------------------------------------------------------------------------------------------------------------------------------*/
 

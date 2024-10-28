@@ -82,7 +82,7 @@ static uint8_t endOfStrokeSensor = 0;
 static int32_t hookPosition = UINT16_MAX;
 static uint16_t hookTarget = 0;
 static Errors_e errorNo = ERROR_NONE;
-static uint8_t seqNo = 0;
+static uint8_t initialized = 0;
 
 extern uint16_t pidKp;
 extern uint16_t pidKi;
@@ -130,13 +130,8 @@ void MotorStart(MC_Handle_t *motor_device)
  */
 void MotorStop(MC_Handle_t *motor_device)
 {
-    MC_Status_t status;
-    status = MC_Core_GetStatus(motor_device);
-    if (status == MC_RUN)
-    {
-        MC_Core_Stop(motor_device);
-        MC_Core_Reset(motor_device);
-    }
+    MC_Core_Stop(motor_device);
+    MC_Core_Reset(motor_device);
 }
 
 /**
@@ -208,7 +203,6 @@ void MotorPositionTargetTest(MC_Handle_t *motor_device)
     if (hookPosition == hookTarget)
     {
         MotorStop(motor_device);
-        seqNo = (seqNo + 1) % 8;
     }
 }
 
@@ -227,224 +221,203 @@ void hook_setError(Errors_e number)
     errorNo = number;
 }
 
-void hook_command_run(hook_remote_cmd_t *rcmd, MC_Handle_t *motor_device)
+void hook_command_run(RemoteCommand_t *cmd, MC_Handle_t *motor_device)
 {
-    if (rcmd->r_data[0] == 0xFE)
+    switch (cmd->operation)
     {
-        RemoteCommand_t *cmd = (RemoteCommand_t *)&rcmd->r_data[1];
+    case SPIN_COMMAND_MOVE:
+        MotorSetDirection(motor_device, MotorGetDirection(cmd->Parameter2));
+        MotorSetSpeed(motor_device, (cmd->Parameter2 > 0) ? cmd->Parameter2 : -cmd->Parameter2);
+        MotorSetTargetPosition(cmd->Parameter1);
+        MotorStart(motor_device);
 
-        if ((cmd->operation < SPIN_COMMAND_STOP) && (cmd->operation >= SPIN_COMMAND_MOVE))
+        break;
+    case SPIN_COMMAND_STOP:
+        MotorStop(motor_device);
+
+        break;
+    case SPIN_COMMAND_EACK:
+        errorNo = ERROR_NONE;
+        MC_Core_Reset(motor_device);
+        motor_device->status = MC_STOP;
+
+        break;
+    case SPIN_COMMAND_REBOOT:
+        HAL_NVIC_SystemReset();
+
+        break;
+    case SPIN_COMMAND_SET_POSITION:
+        hookPosition = cmd->Parameter1;
+
+        break;
+    case SPIN_COMMAND_SET_PARAMETER:
+        switch (cmd->Parameter1)
         {
-            uint8_t cmdSeqNo = cmd->operation - 1;
-            uint8_t nextSeqNo = (seqNo + 1) % 8;
+        case PARAMETER_KP:
+            pidKp = (uint16_t)cmd->Parameter2;
+            MC_Core_SpeedRegulatorReset(motor_device);
 
-            if (cmdSeqNo == nextSeqNo)
+            break;
+        case PARAMETER_KI:
+            pidKi = (uint16_t)cmd->Parameter2;
+            MC_Core_SpeedRegulatorReset(motor_device);
+
+            break;
+        case PARAMETER_KD:
+            pidKd = (uint16_t)cmd->Parameter2;
+            MC_Core_SpeedRegulatorReset(motor_device);
+
+            break;
+        case PARAMETER_PID_SCALING_SHIFT:
+            pidScaling = (uint16_t)cmd->Parameter2;
+            MC_Core_SpeedRegulatorReset(motor_device);
+
+            break;
+        case PARAMETER_PID_OUTPUT_MIN:
+            pidOutMin = (uint16_t)cmd->Parameter2;
+            MC_Core_SpeedRegulatorReset(motor_device);
+
+            break;
+        case PARAMETER_PID_OUTPUT_MAX:
+            pidOutMax = (uint16_t)cmd->Parameter2;
+            MC_Core_SpeedRegulatorReset(motor_device);
+
+            break;
+        case PARAMETER_CURRENT_LIMIT_VALUE:
+            currentLimit = (uint16_t)cmd->Parameter2;
+
+            break;
+        case PARAMETER_CURRENT_LIMIT_TYPE:
+            if (currentLimitType != (uint16_t)cmd->Parameter2)
             {
-                cmd->operation = SPIN_COMMAND_MOVE;
+                currentLimitType = (uint16_t)cmd->Parameter2;
+                MX_TIM1_Init(currentLimitType);
+            }
+
+            break;
+        case PARAMETER_CURRENT_LIMIT_ADC_FILTER_VALUE:
+            currentLimitMaxCount = (uint16_t)cmd->Parameter2;
+
+            break;
+        case PARAMETER_CURRENT_PIN_CONFIG:
+            if (cmd->Parameter2 & 0x01)
+            {
+                HAL_GPIO_WritePin(GPIOF, OCTH_STBY1_Pin, GPIO_PIN_SET);
             }
             else
             {
-                cmd->operation = SPIN_COMMAND_NONE;
-                errorNo = ERROR_INVALID_SEQUENCE_NUMBER;
+                HAL_GPIO_WritePin(GPIOF, OCTH_STBY1_Pin, GPIO_PIN_RESET);
             }
-        }
 
-        switch (cmd->operation)
-        {
-        case SPIN_COMMAND_MOVE:
-            MotorSetDirection(motor_device, MotorGetDirection(cmd->Parameter2));
-            MotorSetSpeed(motor_device, (cmd->Parameter2 > 0) ? cmd->Parameter2 : -cmd->Parameter2);
-            MotorSetTargetPosition(cmd->Parameter1);
-            MotorStart(motor_device);
-
-            break;
-        case SPIN_COMMAND_STOP:
-            MotorStop(motor_device);
-
-            break;
-        case SPIN_COMMAND_EACK:
-            errorNo = ERROR_NONE;
-            MC_Core_Reset(motor_device);
-            motor_device->status = MC_STOP;
-
-            break;
-        case SPIN_COMMAND_REBOOT:
-            HAL_NVIC_SystemReset();
-
-            break;
-        case SPIN_COMMAND_SET_POSITION:
-            hookPosition = cmd->Parameter1;
-
-            break;
-        case SPIN_COMMAND_SET_PARAMETER:
-            switch (cmd->Parameter1)
+            if (cmd->Parameter2 & 0x02)
             {
-            case PARAMETER_KP:
-                pidKp = (uint16_t)cmd->Parameter2;
-                MC_Core_SpeedRegulatorReset(motor_device);
-
-                break;
-            case PARAMETER_KI:
-                pidKi = (uint16_t)cmd->Parameter2;
-                MC_Core_SpeedRegulatorReset(motor_device);
-
-                break;
-            case PARAMETER_KD:
-                pidKd = (uint16_t)cmd->Parameter2;
-                MC_Core_SpeedRegulatorReset(motor_device);
-
-                break;
-            case PARAMETER_PID_SCALING_SHIFT:
-                pidScaling = (uint16_t)cmd->Parameter2;
-                MC_Core_SpeedRegulatorReset(motor_device);
-
-                break;
-            case PARAMETER_PID_OUTPUT_MIN:
-                pidOutMin = (uint16_t)cmd->Parameter2;
-                MC_Core_SpeedRegulatorReset(motor_device);
-
-                break;
-            case PARAMETER_PID_OUTPUT_MAX:
-                pidOutMax = (uint16_t)cmd->Parameter2;
-                MC_Core_SpeedRegulatorReset(motor_device);
-
-                break;
-            case PARAMETER_CURRENT_LIMIT_VALUE:
-                currentLimit = (uint16_t)cmd->Parameter2;
-
-                break;
-            case PARAMETER_CURRENT_LIMIT_TYPE:
-                if (currentLimitType != (uint16_t)cmd->Parameter2)
-                {
-                    currentLimitType = (uint16_t)cmd->Parameter2;
-                    MX_TIM1_Init(currentLimitType);
-                }
-
-                break;
-            case PARAMETER_CURRENT_LIMIT_ADC_FILTER_VALUE:
-                currentLimitMaxCount = (uint16_t)cmd->Parameter2;
-
-                break;
-            case PARAMETER_CURRENT_PIN_CONFIG:
-                if (cmd->Parameter2 & 0x01)
-                {
-                    HAL_GPIO_WritePin(GPIOF, OCTH_STBY1_Pin, GPIO_PIN_SET);
-                }
-                else
-                {
-                    HAL_GPIO_WritePin(GPIOF, OCTH_STBY1_Pin, GPIO_PIN_RESET);
-                }
-
-                if (cmd->Parameter2 & 0x02)
-                {
-                    HAL_GPIO_WritePin(GPIOF, OCTHSTBY2_Pin, GPIO_PIN_SET);
-                }
-                else
-                {
-                    HAL_GPIO_WritePin(GPIOF, OCTHSTBY2_Pin, GPIO_PIN_RESET);
-                }
-
-                break;
-            case PARAMETER_IGNORE_SENSOR:
-                ignoreSensor = cmd->Parameter2;
-
-                break;
-            case PARAMETER_NONE:
-            default:
-                errorNo = ERROR_INVALID_PARAMETER;
-
-                break;
+                HAL_GPIO_WritePin(GPIOF, OCTHSTBY2_Pin, GPIO_PIN_SET);
             }
-
-            break;
-        case SPIN_COMMAND_READ_PARAMETER:
-            switch (cmd->Parameter1)
+            else
             {
-            case PARAMETER_KP:
-                readParameter = PARAMETER_KP;
-                valueParameter = pidKp;
-
-                break;
-            case PARAMETER_KI:
-                readParameter = PARAMETER_KI;
-                valueParameter = pidKi;
-
-                break;
-            case PARAMETER_KD:
-                readParameter = PARAMETER_KD;
-                valueParameter = pidKd;
-
-                break;
-            case PARAMETER_PID_SCALING_SHIFT:
-                readParameter = PARAMETER_PID_SCALING_SHIFT;
-                valueParameter = pidScaling;
-
-                break;
-            case PARAMETER_PID_OUTPUT_MIN:
-                readParameter = PARAMETER_PID_OUTPUT_MIN;
-                valueParameter = pidOutMin;
-
-                break;
-            case PARAMETER_PID_OUTPUT_MAX:
-                readParameter = PARAMETER_PID_OUTPUT_MAX;
-                valueParameter = pidOutMax;
-
-                break;
-            case PARAMETER_CURRENT_LIMIT_VALUE:
-                readParameter = PARAMETER_CURRENT_LIMIT_VALUE;
-                valueParameter = currentLimit;
-
-                break;
-            case PARAMETER_CURRENT_LIMIT_TYPE:
-                readParameter = PARAMETER_CURRENT_LIMIT_TYPE;
-                valueParameter = currentLimitType;
-
-                break;
-            case PARAMETER_CURRENT_LIMIT_ADC_FILTER_VALUE:
-                readParameter = PARAMETER_CURRENT_LIMIT_ADC_FILTER_VALUE;
-                valueParameter = currentLimitMaxCount;
-
-                break;
-            case PARAMETER_CURRENT_PIN_CONFIG:
-                readParameter = PARAMETER_CURRENT_PIN_CONFIG;
-                if (HAL_GPIO_ReadPin(GPIOF, OCTH_STBY1_Pin))
-                {
-                    valueParameter = 0x01;
-                }
-                else
-                {
-                    valueParameter = 0x00;
-                }
-
-                if (HAL_GPIO_ReadPin(GPIOF, OCTHSTBY2_Pin))
-                {
-                    valueParameter |= 0x02;
-                }
-
-                break;
-            case PARAMETER_IGNORE_SENSOR:
-                readParameter = PARAMETER_IGNORE_SENSOR;
-                valueParameter = ignoreSensor;
-
-                break;
-            case PARAMETER_NONE:
-            default:
-                errorNo = ERROR_INVALID_PARAMETER;
-
-                break;
+                HAL_GPIO_WritePin(GPIOF, OCTHSTBY2_Pin, GPIO_PIN_RESET);
             }
 
             break;
-        case SPIN_COMMAND_READY_FOR_LOADING:
-            readyForLoading = (uint16_t)cmd->Parameter1;
-            loadingData = (uint16_t)cmd->Parameter2 << 16;
-            loadingData |= (uint16_t)cmd->Parameter3;
+        case PARAMETER_IGNORE_SENSOR:
+            ignoreSensor = cmd->Parameter2;
 
             break;
+        case PARAMETER_NONE:
         default:
+            errorNo = ERROR_INVALID_PARAMETER;
 
             break;
         }
+
+        break;
+    case SPIN_COMMAND_READ_PARAMETER:
+        switch (cmd->Parameter1)
+        {
+        case PARAMETER_KP:
+            readParameter = PARAMETER_KP;
+            valueParameter = pidKp;
+
+            break;
+        case PARAMETER_KI:
+            readParameter = PARAMETER_KI;
+            valueParameter = pidKi;
+
+            break;
+        case PARAMETER_KD:
+            readParameter = PARAMETER_KD;
+            valueParameter = pidKd;
+
+            break;
+        case PARAMETER_PID_SCALING_SHIFT:
+            readParameter = PARAMETER_PID_SCALING_SHIFT;
+            valueParameter = pidScaling;
+
+            break;
+        case PARAMETER_PID_OUTPUT_MIN:
+            readParameter = PARAMETER_PID_OUTPUT_MIN;
+            valueParameter = pidOutMin;
+
+            break;
+        case PARAMETER_PID_OUTPUT_MAX:
+            readParameter = PARAMETER_PID_OUTPUT_MAX;
+            valueParameter = pidOutMax;
+
+            break;
+        case PARAMETER_CURRENT_LIMIT_VALUE:
+            readParameter = PARAMETER_CURRENT_LIMIT_VALUE;
+            valueParameter = currentLimit;
+
+            break;
+        case PARAMETER_CURRENT_LIMIT_TYPE:
+            readParameter = PARAMETER_CURRENT_LIMIT_TYPE;
+            valueParameter = currentLimitType;
+
+            break;
+        case PARAMETER_CURRENT_LIMIT_ADC_FILTER_VALUE:
+            readParameter = PARAMETER_CURRENT_LIMIT_ADC_FILTER_VALUE;
+            valueParameter = currentLimitMaxCount;
+
+            break;
+        case PARAMETER_CURRENT_PIN_CONFIG:
+            readParameter = PARAMETER_CURRENT_PIN_CONFIG;
+            if (HAL_GPIO_ReadPin(GPIOF, OCTH_STBY1_Pin))
+            {
+                valueParameter = 0x01;
+            }
+            else
+            {
+                valueParameter = 0x00;
+            }
+
+            if (HAL_GPIO_ReadPin(GPIOF, OCTHSTBY2_Pin))
+            {
+                valueParameter |= 0x02;
+            }
+
+            break;
+        case PARAMETER_IGNORE_SENSOR:
+            readParameter = PARAMETER_IGNORE_SENSOR;
+            valueParameter = ignoreSensor;
+
+            break;
+        case PARAMETER_NONE:
+        default:
+            errorNo = ERROR_INVALID_PARAMETER;
+
+            break;
+        }
+
+        break;
+    case SPIN_COMMAND_READY_FOR_LOADING:
+        readyForLoading = (uint16_t)cmd->Parameter1;
+        loadingData = (uint16_t)cmd->Parameter2 << 16;
+        loadingData |= (uint16_t)cmd->Parameter3;
+
+        break;
+    default:
+
+        break;
     }
 }
 
@@ -527,9 +500,8 @@ Measurements_t getMeasurements(void)
  *@param: hd: pointer for hook data structure to store data
  *@retval: None.
  */
-void updateReply(HookReply_t *hd, Measurements_t measurements)
+void updateReply(Measurements_t measurements)
 {
-    (void)(hd);
     (void)(measurements);
 
     if (tim17_TimerTick >= HOOK_MONITOR_REFRESH_TIMESTAMP)
@@ -557,7 +529,7 @@ void updateReply(HookReply_t *hd, Measurements_t measurements)
         }
         else if (hookPosition == HOOK_MECH_OPEN_POS_VAL)
         {
-            currentPosition = POSITION_MID;
+            currentPosition = POSITION_OPEN;
         }
 
         switch (currentPosition)
@@ -617,16 +589,25 @@ void updateReply(HookReply_t *hd, Measurements_t measurements)
  *@param: hd: pointer for hook data structure to store data
  *@retval: None.
  */
-void hook_monitoring_handle(HookReply_t *hd, MC_Handle_t *motor_device)
+void hook_monitoring_handle(MC_Handle_t *motor_device)
 {
     if (HAL_GPIO_ReadPin(END_STROKE_SENSOR_Port, END_STROKE_SENSOR_Pin) == GPIO_PIN_RESET)
     {
         if (!endOfStrokeSensor)
         {
             MotorStop(motor_device);
+
+            if (initialized == 0)
+            {
+                hookPosition = 0;
+                initialized = 1;
+            }
+            else if (initialized && hookPosition > 1000)
+            {
+                hook_setError(ERROR_PROTECTION_ACTIVATED);
+            }
         }
         endOfStrokeSensor = 1;
-        hookPosition = 0;
     }
     else
     {
@@ -639,11 +620,149 @@ void hook_monitoring_handle(HookReply_t *hd, MC_Handle_t *motor_device)
         Measurements_t values = getMeasurements();
 
         // UART transmit process handle
-        updateReply(hd, values);
+        updateReply(values);
 
         // Clear flag
         TIM17_UpdateFlag_IsActive = false;
     }
+}
+
+static RemoteCommand_t cmdBuffer[8];
+static int8_t idxCount = 0;
+RemoteCommand_t *hook_get_commands(MC_Handle_t *motor_device)
+{
+    RemoteCommand_t *result = NULL;
+    MC_Status_t status = MC_Core_GetStatus(motor_device);
+    if (idxCount == 0 && status == MC_STOP)
+    {
+        if (initialized == 0) // uninitialized
+        {
+            if (HAL_GPIO_ReadPin(CLOSE_CMD_GPIO_Port, CLOSE_CMD_Pin) == 0 ||
+                HAL_GPIO_ReadPin(MID_CMD_GPIO_Port, MID_CMD_Pin) == 0 ||
+                HAL_GPIO_ReadPin(OPEN_CMD_GPIO_Port, OPEN_CMD_Pin) == 0)
+            {
+                idxCount = 3; // Number of commands
+                uint8_t idx = idxCount;
+
+                cmdBuffer[idx].operation = SPIN_COMMAND_SET_PARAMETER;
+                cmdBuffer[idx].Parameter1 = PARAMETER_CURRENT_LIMIT_TYPE;
+                cmdBuffer[idx].Parameter2 = 1;
+                cmdBuffer[idx].Parameter3 = 0;
+                --idx;
+
+                uint8_t op = SPIN_COMMAND_MOVE;
+                cmdBuffer[idx].operation = op;
+                cmdBuffer[idx].Parameter1 = HOOK_MECH_HOME_POS_VAL;
+                cmdBuffer[idx].Parameter2 = MOTOR_CLOSE_DIRECTION * HOOK_HOMING_SPEED_VAL;
+                cmdBuffer[idx].Parameter3 = 0;
+                --idx;
+
+                cmdBuffer[idx].operation = SPIN_COMMAND_EACK;
+                cmdBuffer[idx].Parameter1 = 0;
+                cmdBuffer[idx].Parameter2 = 0;
+                cmdBuffer[idx].Parameter3 = 0;
+            }
+        }
+        else // Initialized
+        {
+            if (HAL_GPIO_ReadPin(CLOSE_CMD_GPIO_Port, CLOSE_CMD_Pin) == 0 && hookPosition > HOOK_MECH_CLOSE_POS_VAL)
+            {
+                idxCount = 2; // Number of commands
+                uint8_t idx = idxCount;
+
+                cmdBuffer[idx].operation = SPIN_COMMAND_SET_PARAMETER;
+                cmdBuffer[idx].Parameter1 = PARAMETER_CURRENT_LIMIT_TYPE;
+                cmdBuffer[idx].Parameter2 = 1;
+                cmdBuffer[idx].Parameter3 = 0;
+                --idx;
+
+                uint8_t op = SPIN_COMMAND_MOVE;
+                cmdBuffer[idx].operation = op;
+                cmdBuffer[idx].Parameter1 = HOOK_MECH_CLOSE_POS_VAL;
+                cmdBuffer[idx].Parameter2 = MOTOR_CLOSE_DIRECTION * HOOK_CLOSING_SPEED_VAL;
+                cmdBuffer[idx].Parameter3 = 0;
+            }
+            else if (HAL_GPIO_ReadPin(MID_CMD_GPIO_Port, MID_CMD_Pin) == 0 && hookPosition != HOOK_MECH_MID_POS_VAL)
+            {
+                if (hookPosition > HOOK_MECH_MID_POS_VAL)
+                {
+                    idxCount = 2; // Number of commands
+                    uint8_t idx = idxCount;
+
+                    cmdBuffer[idx].operation = SPIN_COMMAND_SET_PARAMETER;
+                    cmdBuffer[idx].Parameter1 = PARAMETER_CURRENT_LIMIT_TYPE;
+                    cmdBuffer[idx].Parameter2 = 1;
+                    cmdBuffer[idx].Parameter3 = 0;
+                    --idx;
+
+                    uint8_t op = SPIN_COMMAND_MOVE;
+                    cmdBuffer[idx].operation = op;
+                    cmdBuffer[idx].Parameter1 = HOOK_MECH_MID_POS_VAL;
+                    cmdBuffer[idx].Parameter2 = MOTOR_CLOSE_DIRECTION * HOOK_CLOSING_SPEED_VAL;
+                    cmdBuffer[idx].Parameter3 = 0;
+                }
+                else
+                {
+                    idxCount = 3; // Number of commands
+                    uint8_t idx = idxCount;
+
+                    cmdBuffer[idx].operation = SPIN_COMMAND_SET_PARAMETER;
+                    cmdBuffer[idx].Parameter1 = PARAMETER_CURRENT_LIMIT_VALUE;
+                    cmdBuffer[idx].Parameter2 = HOOK_CURRENT_LIMIT_OPEN;
+                    cmdBuffer[idx].Parameter3 = 0;
+                    --idx;
+
+                    cmdBuffer[idx].operation = SPIN_COMMAND_SET_PARAMETER;
+                    cmdBuffer[idx].Parameter1 = PARAMETER_CURRENT_LIMIT_TYPE;
+                    cmdBuffer[idx].Parameter2 = 0;
+                    cmdBuffer[idx].Parameter3 = 0;
+                    --idx;
+
+                    uint8_t op = SPIN_COMMAND_MOVE;
+                    cmdBuffer[idx].operation = op;
+                    cmdBuffer[idx].Parameter1 = HOOK_MECH_MID_POS_VAL;
+                    cmdBuffer[idx].Parameter2 = MOTOR_OPEN_DIRECTION * HOOK_OPENING_SPEED_VAL;
+                    cmdBuffer[idx].Parameter3 = 0;
+                }
+            }
+            else if (HAL_GPIO_ReadPin(OPEN_CMD_GPIO_Port, OPEN_CMD_Pin) == 0 && hookPosition != HOOK_MECH_OPEN_POS_VAL)
+            {
+
+                idxCount = 3; // Number of commands
+                uint8_t idx = idxCount;
+
+                cmdBuffer[idx].operation = SPIN_COMMAND_SET_PARAMETER;
+                cmdBuffer[idx].Parameter1 = PARAMETER_CURRENT_LIMIT_VALUE;
+                cmdBuffer[idx].Parameter2 = HOOK_CURRENT_LIMIT_OPEN;
+                cmdBuffer[idx].Parameter3 = 0;
+                --idx;
+
+                cmdBuffer[idx].operation = SPIN_COMMAND_SET_PARAMETER;
+                cmdBuffer[idx].Parameter1 = PARAMETER_CURRENT_LIMIT_TYPE;
+                cmdBuffer[idx].Parameter2 = 0;
+                cmdBuffer[idx].Parameter3 = 0;
+                --idx;
+
+                uint8_t op = SPIN_COMMAND_MOVE;
+                cmdBuffer[idx].operation = op;
+                cmdBuffer[idx].Parameter1 = HOOK_MECH_MID_POS_VAL;
+                cmdBuffer[idx].Parameter2 = MOTOR_OPEN_DIRECTION * HOOK_OPENING_SPEED_VAL;
+                cmdBuffer[idx].Parameter3 = 0;
+            }
+        }
+    }
+
+    if (errorNo != ERROR_NONE)
+    {
+        idxCount = 0;
+    }
+    else if (idxCount && status == MC_STOP)
+    {
+        result = &cmdBuffer[idxCount];
+        --idxCount;
+    }
+
+    return result;
 }
 
 /*-----------------------------------------------------------------------------------------------------------------------------------*/

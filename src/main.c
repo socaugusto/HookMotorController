@@ -63,10 +63,6 @@ extern volatile bool TIM17_UpdateFlag_IsActive;
 extern uint16_t adc1_RawData[ADC_CONV_LENGTH];
 extern volatile bool ADC1_ConvCpltFlag_IsActive;
 
-hook_remote_cmd_t remoteCommand[8]; // global remote command data structure variable
-static int8_t idxReceive = 0;
-static HookReply_t reply;
-
 STM_Handle_t stmHandle; // state machine motor control handle variable
 
 /* USER CODE END PV */
@@ -107,11 +103,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-    if (huart->Instance == USART1)
-    {
-        idxReceive = (idxReceive + 1) % (sizeof(remoteCommand) / sizeof(hook_remote_cmd_t));
-        HAL_UART_Receive_DMA(&huart1, remoteCommand[idxReceive].r_data, sizeof(remoteCommand[idxReceive].r_data));
-    }
+    (void)(huart);
 }
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
@@ -173,40 +165,19 @@ int main(void)
     HAL_TIM_Base_Start_IT(&htim17);
     HAL_TIM_Base_Start_IT(&htim3);
 
-    HAL_UART_Receive_DMA(&huart1, remoteCommand[idxReceive].r_data, sizeof(remoteCommand[idxReceive].r_data));
-
-    int8_t idxProcess = 0;
-
-    /*PA6 ref. voltage output for testing current sense*/
-    // GPIOA->ODR ^= GPIO_PIN_6;
-
     /* USER CODE END 2 */
 
     /* Infinite loop */
     /* USER CODE BEGIN WHILE */
     while (1)
     {
+        RemoteCommand_t *remoteCommand = hook_get_commands(&Motor_Device1);
         // Hook Main Loop Handle
-        int8_t count = 0;
-        if (idxProcess == idxReceive)
+        if (remoteCommand)
         {
-            count = 0;
+            hook_command_run(remoteCommand, &Motor_Device1);
         }
-        else if (idxProcess < idxReceive)
-        {
-            count = idxReceive - idxProcess;
-        }
-        else if (idxProcess > idxReceive)
-        {
-            count = ((sizeof(remoteCommand) / sizeof(hook_remote_cmd_t)) + idxReceive) - idxProcess;
-        }
-
-        if (count)
-        {
-            hook_command_run(&remoteCommand[idxProcess], &Motor_Device1);
-            idxProcess = (idxProcess + 1) % (sizeof(remoteCommand) / sizeof(hook_remote_cmd_t));
-        }
-        hook_monitoring_handle(&reply, &Motor_Device1);
+        hook_monitoring_handle(&Motor_Device1);
 
         /* USER CODE END WHILE */
 
