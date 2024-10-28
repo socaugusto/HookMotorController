@@ -186,10 +186,6 @@ int main(void)
     /* USER CODE BEGIN WHILE */
     while (1)
     {
-        // Safety tripped
-        while (!HAL_GPIO_ReadPin(Start_Stop_GPIO_Port, Start_Stop_Pin))
-        {
-        }
         // Hook Main Loop Handle
         int8_t count = 0;
         if (idxProcess == idxReceive)
