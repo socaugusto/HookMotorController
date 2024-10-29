@@ -18,6 +18,8 @@ add_executable(Hook_Motor
     src/user/syscalls.c
     src/user/sysmem.c
 
+    src/encoding_checksum.cpp
+
     src/aspep.c
     src/mc_config.c
     src/mcp_config.c
@@ -42,6 +44,11 @@ target_compile_options(Hook_Motor
         -Wno-missing-field-initializers
         #-Wmissing-declarations
 )
+
+# target_compile_definitions(Hook_Motor
+#     PRIVATE
+#         -DMC_HAL_IS_USED
+# )
 
 target_include_directories(Hook_Motor
     PRIVATE
@@ -79,7 +86,7 @@ target_link_libraries(Hook_Motor
 set_target_properties(Hook_Motor PROPERTIES SUFFIX ".elf")
 
 add_custom_target(Hook_Motor_Flash
-    COMMAND pushd ${CMAKE_BINARY_DIR}
+    #COMMAND pushd ${CMAKE_BINARY_DIR}
     COMMAND openocd -f interface/stlink.cfg -f target/stm32f0x.cfg -c "program Hook_Motor.elf verify reset exit"
     DEPENDS Hook_Motor
 )
