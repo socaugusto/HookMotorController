@@ -70,6 +70,9 @@ extern "C"
 #define OPEN_CMD_Pin GPIO_PIN_3
 #define OPEN_CMD_GPIO_Port GPIOA
 
+#define SAFETY_Pin GPIO_PIN_5
+#define SAFETY_GPIO_Port GPIOA
+
 #define CLOSE_OUT_Pin GPIO_PIN_8
 #define CLOSE_OUT_GPIO_Port GPIOB
 #define MID_OUT_Pin GPIO_PIN_9

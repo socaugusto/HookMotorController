@@ -437,8 +437,8 @@ Measurements_t getMeasurements(void)
     {
 
         // VrefInt formatting
-        uint32_t temp = adc1_RawData[2];
-        for (uint32_t i = (2 + 3); i < ADC_CONV_LENGTH; i += 3)
+        uint32_t temp = adc1_RawData[1];
+        for (uint32_t i = (1 + 2); i < ADC_CONV_LENGTH; i += 2)
         {
             temp += adc1_RawData[i];
             temp /= 2;
@@ -450,7 +450,7 @@ Measurements_t getMeasurements(void)
 
         // Current sense formatting
         temp = adc1_RawData[0];
-        for (uint32_t i = (0 + 3); i < ADC_CONV_LENGTH; i += 3)
+        for (uint32_t i = (0 + 2); i < ADC_CONV_LENGTH; i += 2)
         {
             temp += adc1_RawData[i];
             temp /= 2;
@@ -770,6 +770,12 @@ RemoteCommand_t *hook_get_commands(MC_Handle_t *motor_device)
     {
         hook_setError(ERROR_COMMAND_TIMEOUT);
         MotorStop(motor_device);
+    }
+    else if (HAL_GPIO_ReadPin(SAFETY_GPIO_Port, SAFETY_Pin) == GPIO_PIN_RESET && status == MC_RUN)
+    {
+        hook_setError(ERROR_ESTOP);
+        MotorStop(motor_device);
+        result = NULL;
     }
 
     return result;

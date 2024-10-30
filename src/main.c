@@ -273,7 +273,7 @@ static void MX_ADC_Init(void)
     hadc.Instance = ADC1;
     hadc.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
     hadc.Init.Resolution = ADC_RESOLUTION_12B;
-    hadc.Init.DataAlign = ADC_DATAALIGN_LEFT;
+    hadc.Init.DataAlign = ADC_DATAALIGN_RIGHT;
     hadc.Init.ScanConvMode = ADC_SCAN_DIRECTION_FORWARD;
     hadc.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
     hadc.Init.LowPowerAutoWait = DISABLE;
@@ -293,13 +293,6 @@ static void MX_ADC_Init(void)
     sConfig.Channel = ADC_CHANNEL_4;
     sConfig.Rank = ADC_RANK_CHANNEL_NUMBER;
     sConfig.SamplingTime = ADC_SAMPLETIME_7CYCLES_5;
-    if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
-    {
-        Error_Handler();
-    }
-    /** Configure for the selected ADC regular channel to be converted.
-     */
-    sConfig.Channel = ADC_CHANNEL_5;
     if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
     {
         Error_Handler();
@@ -642,6 +635,11 @@ static void MX_GPIO_Init(void)
     GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
     GPIO_InitStruct.Pull = GPIO_PULLUP;
     HAL_GPIO_Init(END_STROKE_SENSOR_Port, &GPIO_InitStruct);
+
+    GPIO_InitStruct.Pin = SAFETY_Pin;
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(SAFETY_GPIO_Port, &GPIO_InitStruct);
 
     GPIO_InitStruct.Pin = CLOSE_OUT_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
