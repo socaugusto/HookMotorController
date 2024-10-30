@@ -83,6 +83,7 @@ static int32_t hookPosition = UINT16_MAX;
 static uint16_t hookTarget = 0;
 static Errors_e errorNo = ERROR_NONE;
 static uint8_t initialized = 0;
+static uint32_t timeout = 0;
 
 extern uint16_t pidKp;
 extern uint16_t pidKi;
@@ -580,6 +581,8 @@ void updateReply(Measurements_t measurements)
 
         // Clear timer tick
         tim17_TimerTick = 0;
+
+        --timeout;
     }
 }
 
@@ -760,6 +763,13 @@ RemoteCommand_t *hook_get_commands(MC_Handle_t *motor_device)
     {
         result = &cmdBuffer[idxCount];
         --idxCount;
+        timeout = 40 * 4; // 40s timeout for all commands hat run motor
+    }
+
+    if (status == MC_RUN && !timeout)
+    {
+        hook_setError(ERROR_COMMAND_TIMEOUT);
+        MotorStop(motor_device);
     }
 
     return result;
